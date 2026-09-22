@@ -37,6 +37,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e9098a7-e9ea-401c-bb30-f88aea16d882"
+      }
+    },
+    "owner": "uner-mobile-grupo-3"
   }
 }
