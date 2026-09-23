@@ -9,7 +9,7 @@ export interface Foto {
   momento: "problema" | "arreglo";
 }
 
-export type EstadoReporte = "recibido" | "en revision" | "asignado" | "resuelto" | "rechazado";
+export type EstadoReporte = "recibido" | "en_revision" | "asignado" | "resuelto" | "rechazado";
 
 export type Rol = "vecino" | "operador";
 
