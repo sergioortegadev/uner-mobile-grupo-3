@@ -51,6 +51,7 @@ export interface CambioDeEstado {
 
 export interface Usuario {
   id: string;
+  dni: string;
   nombre: string;
   email: string;
   telefono: string | null;
@@ -73,4 +74,16 @@ export interface Cuadrilla {
   zonaId: string;
   especialidad: string;
   activa: boolean;
+}
+
+export interface CredencialesAuth {
+  email: string;
+  password: string;
+}
+
+// Posiblemente se modifique cuando estén los endpoint implementados
+export interface RespuestaAuth {
+  token: string;
+  refreshToken?: string;
+  usuario: Usuario;
 }
