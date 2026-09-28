@@ -74,3 +74,19 @@ export interface Cuadrilla {
   especialidad: string;
   activa: boolean;
 }
+
+export interface CredencialesAuth {
+  email: string;
+  password: string;
+}
+
+// Posiblemente se modifique cuando estén los endpoint implementados
+export interface RespuestaAuth {
+  user: Usuario;
+  access_token: string;
+  refresh_Token?: string;
+  token_type?: string;
+  expires_in?: string;
+  access_token_expires_at?: string;
+  refresh_token_expires_at?: string;
+}
