@@ -51,6 +51,7 @@ export interface CambioDeEstado {
 
 export interface Usuario {
   id: string;
+  dni: string;
   nombre: string;
   email: string;
   telefono: string | null;
