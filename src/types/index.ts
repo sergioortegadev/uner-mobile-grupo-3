@@ -51,7 +51,7 @@ export interface CambioDeEstado {
 
 export interface Usuario {
   id: string;
-  dni: string;
+  dni?: string;
   nombre: string;
   email: string;
   telefono: string | null;
@@ -85,7 +85,7 @@ export interface CredencialesAuth {
 export interface RespuestaAuth {
   user: Usuario;
   access_token: string;
-  refresh_Token?: string;
+  refresh_token?: string;
   token_type?: string;
   expires_in?: string;
   access_token_expires_at?: string;
