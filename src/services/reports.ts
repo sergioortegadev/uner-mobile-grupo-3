@@ -14,7 +14,7 @@ export interface CreateReportDTO {
   tipoId: string;
   descripcion: string | null;
   audioUrl: string | null;
-  foto: Foto[];
+  fotos: Foto[];
   coordenadas: Coordenadas;
   direccion: string;
   autorId: string;
@@ -38,7 +38,7 @@ export interface ReportService {
     operatorId?: string | null,
     repairPhotoUrl?: string | null,
   ): Promise<Reporte>;
-  addAdhesion(reportId: string, userId: string): Promise<Reporte>;
+  addAdhesion(reportId: string): Promise<Reporte>;
   getNearbyReports(coordinates: Coordenadas, radiusMeters: number): Promise<Reporte[]>;
   getReportTypes(): Promise<TipoDeReporte[]>;
 
@@ -145,9 +145,9 @@ export class MockReportService implements ReportService {
     return resultado.sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
   }
 
-  async getReportById(id: string): Promise<Reporte | null> {
+  async getReportById(reportId: string): Promise<Reporte | null> {
     await delay(400);
-    const reporte = this.reports.find((r) => r.id === id);
+    const reporte = this.reports.find((r) => r.id === reportId);
 
     return reporte || null;
   }
@@ -162,7 +162,7 @@ export class MockReportService implements ReportService {
       tipoId: data.tipoId,
       descripcion: data.descripcion,
       audioUrl: data.audioUrl,
-      fotos: data.foto,
+      fotos: data.fotos,
       coordenadas: data.coordenadas,
       direccion: data.direccion,
       zonaId: "zona-1",
@@ -180,7 +180,7 @@ export class MockReportService implements ReportService {
   }
 
   async updateReportStatus(
-    id: string,
+    reportId: string,
     status: EstadoReporte,
     comment?: string | null,
     operatorId?: string | null,
@@ -188,7 +188,7 @@ export class MockReportService implements ReportService {
   ): Promise<Reporte> {
     await delay(800);
 
-    const reporte = this.reports.find((r) => r.id === id);
+    const reporte = this.reports.find((r) => r.id === reportId);
     if (!reporte) throw new Error("Reporte no encontrado");
 
     reporte.estado = status;
@@ -201,15 +201,36 @@ export class MockReportService implements ReportService {
       });
     }
 
+    // Registrar en el historial de cambios
+    this.history.push({
+      id: `hist-${Date.now()}`,
+      reporteId: reportId,
+      estado: status,
+      comentario: comment || null,
+      operadorId: operatorId || null,
+      fechaHora: new Date().toISOString(),
+    });
+
     return { ...reporte };
   }
 
-  async addAdhesion(reportId: string, userId: string): Promise<Reporte> {
+  async addAdhesion(reportId: string): Promise<Reporte> {
     await delay(300);
     const reporte = this.reports.find((r) => r.id === reportId);
     if (!reporte) throw new Error("Reporte no encontrado");
 
     reporte.adhesiones++;
+
+    // Registrar en el historial de cambios
+    this.history.push({
+      id: `hist-${Date.now()}`,
+      reporteId: reportId,
+      estado: reporte.estado,
+      comentario: `Se añadió un usuario al reporte`,
+      operadorId: null,
+      fechaHora: new Date().toISOString(),
+    });
+
     return { ...reporte };
   }
 

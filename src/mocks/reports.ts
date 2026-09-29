@@ -74,7 +74,7 @@ export const MOCK_REPORTS: Reporte[] = [
     zonaId: "zone-2",
     estado: "asignado",
     autorId: "usr-vecino-2",
-    cuadrillaId: "crew-electrotecnia-1",
+    cuadrillaId: "crew-02",
     duplicadoDe: null,
     adhesiones: 2,
     creadoEn: "2026-09-21T18:40:00-03:00",
@@ -121,7 +121,7 @@ export const MOCK_REPORTS: Reporte[] = [
     zonaId: "zone-4",
     estado: "resuelto",
     autorId: "usr-vecino-3",
-    cuadrillaId: "crew-sanitarias-2",
+    cuadrillaId: "crew-04",
     duplicadoDe: null,
     adhesiones: 8,
     creadoEn: "2026-09-18T11:30:00-03:00",
@@ -131,7 +131,7 @@ export const MOCK_REPORTS: Reporte[] = [
 
 export const MOCK_ZONES: Zona[] = [
   {
-    id: "zona-1",
+    id: "zone-1",
     nombre: "Zona Norte",
     referente: "Ing. Carlos Rossi",
     limite: [
@@ -142,7 +142,7 @@ export const MOCK_ZONES: Zona[] = [
     ],
   },
   {
-    id: "zona-2",
+    id: "zone-2",
     nombre: "Zona Centro / Este",
     referente: "Arq. María Fernandez",
     limite: [
@@ -153,7 +153,7 @@ export const MOCK_ZONES: Zona[] = [
     ],
   },
   {
-    id: "zona-3",
+    id: "zone-3",
     nombre: "Zona Oeste",
     referente: "Téc. Roberto Gómez",
     limite: [
@@ -164,7 +164,7 @@ export const MOCK_ZONES: Zona[] = [
     ],
   },
   {
-    id: "zona-4",
+    id: "zone-4",
     nombre: "Zona Sur",
     referente: "Sra. Laura Benítez",
     limite: [
