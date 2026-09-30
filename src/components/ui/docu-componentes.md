@@ -62,6 +62,190 @@ editable={!disabled}
 
 ---
 
+## Select
+
+`Select` es un componente de formulario que permite seleccionar una opción de una lista desplegable. Utiliza un `Modal` para mostrar las opciones disponibles.
+
+### Props
+
+| Prop            | Tipo                      | Default            | Descripción                                           |
+| --------------- | ------------------------- | ------------------ | ----------------------------------------------------- |
+| `label`         | `string`                  | —                  | Texto descriptivo mostrado sobre el campo.            |
+| `options`       | `SelectOption[]`          | —                  | Lista de opciones disponibles.                        |
+| `selectedValue` | `string \| null`          | —                  | Valor actualmente seleccionado.                       |
+| `onSelect`      | `(value: string) => void` | —                  | Callback ejecutado al seleccionar una opción.         |
+| `placeholder`   | `string`                  | `"Seleccionar..."` | Texto mostrado cuando no hay una opción seleccionada. |
+| `error`         | `string \| null`          | —                  | Mensaje de error mostrado debajo del campo.           |
+| `disabled`      | `boolean`                 | `false`            | Deshabilita la interacción con el selector.           |
+
+### SelectOption
+
+Cada opción debe tener la siguiente estructura:
+
+```ts
+interface SelectOption {
+  label: string;
+  value: string;
+}
+```
+
+Por ejemplo:
+
+```tsx
+const opciones = [
+  { label: "Alta", value: "alta" },
+  { label: "Media", value: "media" },
+  { label: "Baja", value: "baja" },
+];
+```
+
+`label` es el texto que ve el usuario y `value` es el valor que utiliza la aplicación.
+
+### Estado controlado
+
+El valor seleccionado debe mantenerse en la **Screen o componente padre**, no dentro de `Select`.
+
+```tsx
+const [prioridad, setPrioridad] = useState<string | null>(null);
+```
+
+Uso:
+
+```tsx
+<Select label="Prioridad" options={opciones} selectedValue={prioridad} onSelect={setPrioridad} />
+```
+
+El flujo es:
+
+```text
+Usuario selecciona opción
+        ↓
+Select ejecuta onSelect(value)
+        ↓
+La Screen actualiza el estado
+        ↓
+selectedValue cambia
+        ↓
+Select muestra la nueva opción
+```
+
+### Placeholder
+
+Cuando `selectedValue` es `null`, se muestra `placeholder`:
+
+```tsx
+<Select
+  label="Categoría"
+  options={categorias}
+  selectedValue={categoria}
+  onSelect={setCategoria}
+  placeholder="Seleccione una categoría"
+/>
+```
+
+Si no se especifica, utiliza:
+
+```text
+Seleccionar...
+```
+
+### Opción seleccionada
+
+El componente busca automáticamente la opción correspondiente a `selectedValue`:
+
+```ts
+const selectedOption = options.find((opt) => opt.value === selectedValue);
+```
+
+Por lo tanto, `selectedValue` debe coincidir con el `value` de alguna opción.
+
+### Errores
+
+Puede mostrar un mensaje de validación:
+
+```tsx
+<Select
+  label="Categoría"
+  options={categorias}
+  selectedValue={categoria}
+  onSelect={setCategoria}
+  error="Debe seleccionar una categoría"
+/>
+```
+
+Cuando existe `error`, el borde del campo utiliza el color de error definido en `coloresOficiales`.
+
+### Estado deshabilitado
+
+Para impedir la interacción:
+
+```tsx
+<Select label="Categoría" options={categorias} selectedValue={categoria} onSelect={setCategoria} disabled />
+```
+
+El componente modifica visualmente el campo y evita abrir el `Modal`.
+
+### Modal y selección
+
+Al presionar el campo se abre un `Modal` que contiene las opciones:
+
+```text
+┌─────────────────────────────┐
+│ Categoría              ×    │
+├─────────────────────────────┤
+│ Infraestructura             │
+│ Seguridad              ✓    │
+│ Iluminación                 │
+│ Limpieza                    │
+└─────────────────────────────┘
+```
+
+Al seleccionar una opción:
+
+1. Se ejecuta `onSelect(item.value)`.
+2. Se actualiza el estado de la Screen.
+3. Se cierra automáticamente el `Modal`.
+
+### Accesibilidad
+
+El campo principal utiliza:
+
+```tsx
+accessibilityRole = "combobox";
+```
+
+y comunica:
+
+```tsx
+accessibilityState={{
+  expanded: modalVisible,
+  disabled,
+}}
+```
+
+El botón para cerrar las opciones también tiene un `accessibilityLabel`:
+
+```tsx
+accessibilityLabel = "Cerrar opciones";
+```
+
+### Criterio de uso
+
+Utilizar `Select` cuando el usuario deba elegir **una única opción de un conjunto conocido**.
+
+Ejemplos:
+
+- Categoría.
+- Prioridad.
+- Tipo de reporte.
+- Estado.
+- Localidad.
+- Tipo de usuario.
+
+Para pocas opciones que deban permanecer visibles simultáneamente, puede ser más apropiado utilizar `Chip`.
+
+El `Select` debe permanecer como componente presentacional: la Screen es responsable del estado, las validaciones y la lógica asociada a la selección.
+
 ## Button
 
 Componente basado en `Pressable` de React Native.
