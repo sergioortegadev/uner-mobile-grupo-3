@@ -38,7 +38,9 @@
         {
           "microphonePermission": "Permitir a $(PRODUCT_NAME) acceder al micrófono para grabar audios."
         }
-      ]
+      ],
+      "expo-asset",
+      "@react-native-vector-icons/ionicons"
     ],
     "experiments": {
       "typedRoutes": true,
