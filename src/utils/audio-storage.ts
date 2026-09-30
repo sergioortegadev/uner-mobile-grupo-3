@@ -26,6 +26,8 @@ export async function persistAudioFile(tempUri: string): Promise<string> {
 
   await sourceFile.copy(targetFile);
 
+  // Limpieza: se elimina el archivo temporal para no duplicar espacio.
+  // Si el borrado falla, no abortamos el flujo porque el guardado  fue exitoso
   if (sourceFile.exists && sourceFile.uri !== targetFile.uri) {
     try {
       sourceFile.delete();
