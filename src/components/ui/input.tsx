@@ -10,7 +10,15 @@ type InputProps = TextInputProps & {
   disabled?: boolean;
 };
 
-export const Input = ({ label, error, style, disabled = false, ...rest }: InputProps) => {
+export const Input = ({
+  label,
+  error,
+  style,
+  disabled = false,
+  onFocus,
+  onBlur,
+  ...rest
+}: InputProps) => {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
 
