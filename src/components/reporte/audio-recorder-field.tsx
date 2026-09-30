@@ -1,4 +1,6 @@
-import { Colores } from "@/constants/colores";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { coloresOficiales as Colores } from "@/constants/theme";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useFocusEffect } from "expo-router";
@@ -26,11 +28,7 @@ function formatDuration(millis: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-/**
- * Campo controlado de grabación de audio. El hook `useVoiceRecorder` es la
- * fuente de verdad de la sesión; la prop `uri` sólo sincroniza resets
- * externos (por ejemplo, cuando el padre descarta el valor).
- */
+
 export function AudioRecorderField({
   uri,
   onChange,
@@ -41,7 +39,7 @@ export function AudioRecorderField({
   const recorderRef = useRef(recorder);
   // Reset externo: si el padre puso `uri` en null mientras este componente
   // todavía tiene una grabación en el hook, hay que descartar el archivo.
-  // `handledUriRef` evita repetir la operación (y por lo tanto un loop).
+  // `handledUriRef` evita repetir la operación
   useEffect(() => {
     if (uri !== null) {
       handledUriRef.current = null;
@@ -102,9 +100,11 @@ export function AudioRecorderField({
     <View style={styles.container}>
       {isRecordingActive && (
         <View style={styles.recordingRow}>
-          <Pressable
+          <Button
             disabled={disabled}
-            accessibilityRole="button"
+            size="mediano"
+            variant="contorno"
+            title={recorder.isRecordingPaused ? "▶ Reanudar" : "❚❚ Pausar"}
             accessibilityLabel={
               recorder.isRecordingPaused
                 ? "Reanudar grabación"
@@ -115,7 +115,6 @@ export function AudioRecorderField({
                 ? "Continúa la grabación interrumpida"
                 : "Interrumpe la grabación temporalmente"
             }
-            accessibilityState={{ disabled }}
             onPress={() => {
               if (recorder.isRecordingPaused) {
                 recorder.resumeRecording();
@@ -123,35 +122,22 @@ export function AudioRecorderField({
                 recorder.pauseRecording();
               }
             }}
-            style={[styles.secondaryBtn, disabled && styles.disabled]}
-          >
-            <Text maxFontSizeMultiplier={2} style={styles.secondaryBtnText}>
-              {recorder.isRecordingPaused ? "▶ Reanudar" : "❚❚ Pausar"}
-            </Text>
-          </Pressable>
+          />
 
-          <Pressable
+          <Button
             disabled={disabled}
-            accessibilityRole="button"
+            size="mediano"
+            variant="primario"
+            title={`■ Detener (${formatDuration(recorder.recordingDurationMillis)})`}
             accessibilityLabel={`Detener grabación, tiempo ${formatDuration(recorder.recordingDurationMillis)}`}
             accessibilityHint="Detiene y guarda la grabación"
-            accessibilityState={{ disabled }}
             onPress={handleStop}
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              pressed && !disabled && styles.primaryBtnPressed,
-              disabled && styles.disabled,
-            ]}
-          >
-            <Text maxFontSizeMultiplier={2} style={styles.primaryBtnText}>
-              ■ Detener ({formatDuration(recorder.recordingDurationMillis)})
-            </Text>
-          </Pressable>
+          />
         </View>
       )}
 
       {!isRecordingActive && recorder.recordingUri && (
-        <View style={styles.playerCard}>
+        <Card style={styles.playerCard}>
           <Pressable
             disabled={disabled}
             accessibilityRole="button"
@@ -169,9 +155,12 @@ export function AudioRecorderField({
             }}
             style={[styles.playButton, disabled && styles.disabled]}
           >
-            <Text maxFontSizeMultiplier={1.5} style={styles.playIcon}>
-              {recorder.isPlaying ? "❚❚" : "▶"}
-            </Text>
+            <Ionicons
+              name={recorder.isPlaying ? "pause" : "play"}
+              size={22}
+              color="#FFFFFF"
+              style={!recorder.isPlaying ? styles.playIconOffset : undefined}
+            />
           </Pressable>
 
           <View style={styles.trackContainer}>
@@ -196,11 +185,9 @@ export function AudioRecorderField({
             onPress={handleDelete}
             style={[styles.deleteButton, disabled && styles.disabled]}
           >
-            <Text maxFontSizeMultiplier={1.5} style={styles.deleteText}>
-              ✕
-            </Text>
+            <Ionicons name="trash-outline" size={22} color={Colores.textoSuave} />
           </Pressable>
-        </View>
+        </Card>
       )}
 
       {!isRecordingActive && !recorder.recordingUri && (
@@ -215,7 +202,7 @@ export function AudioRecorderField({
           }}
           style={({ pressed }) => [
             styles.recordButton,
-            pressed && !isRecordDisabled && styles.primaryBtnPressed,
+            pressed && !isRecordDisabled && styles.recordButtonPressed,
             isRecordDisabled && styles.disabled,
           ]}
         >
@@ -234,21 +221,17 @@ export function AudioRecorderField({
       )}
 
       {isPermanentlyDenied && (
-        <Pressable
+        <Button
           disabled={disabled}
-          accessibilityRole="button"
+          size="mediano"
+          variant="contorno"
+          title="⚙ Abrir ajustes para permitir micrófono"
           accessibilityLabel="Abrir ajustes para permitir micrófono"
           accessibilityHint="Abre la configuración del celular para otorgar permisos"
-          accessibilityState={{ disabled }}
           onPress={() => {
             Linking.openSettings();
           }}
-          style={[styles.settingsBtn, disabled && styles.disabled]}
-        >
-          <Text maxFontSizeMultiplier={2} style={styles.settingsBtnText}>
-            ⚙ Abrir ajustes para permitir micrófono
-          </Text>
-        </Pressable>
+        />
       )}
     </View>
   );
@@ -264,19 +247,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: "wrap",
   },
-  primaryBtn: {
-    backgroundColor: Colores.primario,
-    minHeight: 44,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryBtnPressed: {
-    backgroundColor: Colores.primarioPresionado,
-  },
   recordButton: {
     width: 56,
     height: 56,
@@ -285,39 +255,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  secondaryBtn: {
-    backgroundColor: Colores.superficie,
-    borderWidth: 1,
-    borderColor: Colores.primario,
-    minHeight: 44,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryBtnText: {
-    color: Colores.primario,
-    fontSize: 17,
-    fontWeight: "600",
+  recordButtonPressed: {
+    backgroundColor: Colores.primarioPresionado,
   },
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colores.superficie,
-    borderWidth: 1,
-    borderColor: Colores.borde,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 16,
     gap: 12,
     maxWidth: 320,
+    marginBottom: 0,
   },
   playButton: {
     width: 48,
@@ -327,9 +276,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  playIcon: {
-    color: "#FFFFFF",
-    fontSize: 20,
+  playIconOffset: {
     marginLeft: 2,
   },
   trackContainer: {
@@ -360,32 +307,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  deleteText: {
-    color: Colores.textoSuave,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
   errorText: {
     color: Colores.rechazado,
     fontSize: 15,
     fontWeight: "500",
-  },
-  settingsBtn: {
-    minHeight: 44,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    backgroundColor: Colores.niebla,
-    borderWidth: 1,
-    borderColor: Colores.borde,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  settingsBtnText: {
-    color: Colores.tinta,
-    fontSize: 16,
-    fontWeight: "600",
   },
   disabled: {
     opacity: 0.6,
