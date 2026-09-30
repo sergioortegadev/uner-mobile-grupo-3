@@ -1,3 +1,4 @@
+import { logDevError } from "@/helpers/log";
 import { useAudioPermissions } from "@/hooks/use-audio-permissions";
 import { deleteAudioFile, persistAudioFile } from "@/utils/audio-storage";
 import {
@@ -17,9 +18,8 @@ import { useEffect, useRef, useState } from "react";
  * quede desincronizado de la validación.
  */
 export const MIN_RECORDING_DURATION_MILLIS = 1000;
-
+const NEAR_END_THRESHOLD_SECONDS = 0.2;
 const MIN_RECORDING_SECONDS = Math.round(MIN_RECORDING_DURATION_MILLIS / 1000);
-
 export const VOICE_RECORDER_ERRORS = {
   PERMISSION_CHECK_FAILED: "Error al verificar permisos del micrófono.",
   PERMISSION_REQUEST_FAILED: "Error al solicitar permisos para el micrófono.",
@@ -82,6 +82,24 @@ const PLAYBACK_AUDIO_MODE = {
   allowsRecording: false,
 } as const;
 
+const secondsToMillis = (seconds?: number | null): number =>
+  Math.round((seconds || 0) * 1000);
+
+// Helper genérico para ejecutar una acción asíncrona bajo un lock
+const runWithLock = async <T>(
+  lockRef: React.RefObject<boolean>,
+  action: () => Promise<T>,
+): Promise<T | null> => {
+  if (lockRef.current) return null;
+
+  lockRef.current = true;
+  try {
+    return await action();
+  } finally {
+    lockRef.current = false;
+  }
+};
+
 export function useVoiceRecorder(
   initialUri?: string | null,
 ): UseVoiceRecorderReturn {
@@ -140,54 +158,57 @@ export function useVoiceRecorder(
         setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {});
       }
 
-      try {
-        player.pause();
-      } catch {}
-    };
-  }, [player, recorder]);
-
-  const startRecording = async () => {
-    if (isBusyRef.current || isRecordingRef.current) {
-      return;
-    }
-
-    isBusyRef.current = true;
-    try {
-      setError(null);
-      setIsPreparing(true);
-
-      const hasPermission = permissionGranted || (await requestPermission());
-      if (!hasPermission) {
-        setError(VOICE_RECORDER_ERRORS.PERMISSION_DENIED);
-        return;
-      }
-
       if (playerStatus.playing) {
         player.pause();
       }
+    };
+  }, [player, playerStatus.playing, recorder]);
 
-      // Si existía un audio grabado previo, limpiarlo antes de comenzar la nueva grabación
-      if (recordingUriRef.current) {
-        try {
-          await deleteAudioFile(recordingUriRef.current);
-        } catch {}
-      }
-
-      setRecordingUri(null);
-      setRecordedDurationMillis(0);
-
-      await setAudioModeAsync(RECORDING_AUDIO_MODE);
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setIsRecordingPaused(false);
-    } catch (err) {
-      console.error("useVoiceRecorder.startRecording error:", err);
-      await setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {});
-      setError(VOICE_RECORDER_ERRORS.START_RECORDING_FAILED);
-    } finally {
-      setIsPreparing(false);
-      isBusyRef.current = false;
+  useEffect(() => {
+    if (!playerStatus.playing && playerStatus.didJustFinish) {
+      player.seekTo(0).catch();
     }
+  }, [player, playerStatus.didJustFinish, playerStatus.playing]);
+
+  const startRecording = async () => {
+    await runWithLock(isBusyRef, async () => {
+      if (isRecordingRef.current) return;
+      try {
+        setError(null);
+        setIsPreparing(true);
+
+        const hasPermission = permissionGranted || (await requestPermission());
+        if (!hasPermission) {
+          setError(VOICE_RECORDER_ERRORS.PERMISSION_DENIED);
+          return;
+        }
+
+        if (playerStatus.playing) {
+          player.pause();
+        }
+
+        // Si existía un audio grabado previo, limpiarlo antes de comenzar la nueva grabación
+        if (recordingUriRef.current) {
+          try {
+            await deleteAudioFile(recordingUriRef.current);
+          } catch {}
+        }
+
+        setRecordingUri(null);
+        setRecordedDurationMillis(0);
+
+        await setAudioModeAsync(RECORDING_AUDIO_MODE);
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+        setIsRecordingPaused(false);
+      } catch (err) {
+        logDevError("useVoiceRecorder.startRecording error:", err);
+        await setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {});
+        setError(VOICE_RECORDER_ERRORS.START_RECORDING_FAILED);
+      } finally {
+        setIsPreparing(false);
+      }
+    });
   };
 
   const pauseRecording = async () => {
@@ -197,7 +218,7 @@ export function useVoiceRecorder(
         setIsRecordingPaused(true);
       }
     } catch (err) {
-      console.error("useVoiceRecorder.pauseRecording error:", err);
+      logDevError("useVoiceRecorder.pauseRecording error:", err);
       setError(VOICE_RECORDER_ERRORS.PAUSE_RECORDING_FAILED);
     }
   };
@@ -209,69 +230,66 @@ export function useVoiceRecorder(
         setIsRecordingPaused(false);
       }
     } catch (err) {
-      console.error("useVoiceRecorder.resumeRecording error:", err);
+      logDevError("useVoiceRecorder.resumeRecording error:", err);
       setError(VOICE_RECORDER_ERRORS.RESUME_RECORDING_FAILED);
     }
   };
 
   const stopRecording = async (): Promise<string | null> => {
-    if (
-      isBusyRef.current ||
-      (!isRecordingRef.current && !isRecordingPausedRef.current)
-    ) {
-      return null;
-    }
-
-    isBusyRef.current = true;
-    try {
-      setError(null);
-      setIsPreparing(true);
-      setIsRecordingPaused(false);
-
-      const directDuration =
-        recorder.getStatus().durationMillis ||
-        Math.round((recorder.currentTime || 0) * 1000);
-
-      await recorder.stop();
-      const tempUri = recorder.uri;
-      const duration = Math.max(
-        directDuration,
-        recorder.getStatus().durationMillis,
-      );
-
-      await setAudioModeAsync(PLAYBACK_AUDIO_MODE);
-
-      if (duration < MIN_RECORDING_DURATION_MILLIS) {
-        if (tempUri) {
-          try {
-            await deleteAudioFile(tempUri);
-          } catch {
-            // Silenciosamente ignorar fallo al borrar archivo temporal
-          }
-        }
-        setRecordingUri(null);
-        setRecordedDurationMillis(0);
-        setError(VOICE_RECORDER_ERRORS.RECORDING_TOO_SHORT);
+    return await runWithLock(isBusyRef, async () => {
+      if (!isRecordingRef.current && !isRecordingPausedRef.current) {
         return null;
       }
 
-      let finalUri: string | null = null;
-      if (tempUri) {
-        finalUri = await persistAudioFile(tempUri);
-        setRecordingUri(finalUri);
-        setRecordedDurationMillis(duration);
-      }
+      try {
+        setError(null);
+        setIsPreparing(true);
+        setIsRecordingPaused(false);
 
-      return finalUri;
-    } catch (err) {
-      console.error("useVoiceRecorder.stopRecording error:", err);
-      await setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {});
-      setError(VOICE_RECORDER_ERRORS.STOP_RECORDING_FAILED);
-      return null;
-    } finally {
-      setIsPreparing(false);
-      isBusyRef.current = false;
-    }
+        const directDuration =
+          recorder.getStatus().durationMillis ||
+          secondsToMillis(recorder.currentTime);
+
+        await recorder.stop();
+        const tempUri = recorder.uri;
+        const duration = Math.max(
+          directDuration,
+          recorder.getStatus().durationMillis,
+        );
+
+        await setAudioModeAsync(PLAYBACK_AUDIO_MODE);
+
+        if (duration < MIN_RECORDING_DURATION_MILLIS) {
+          if (tempUri) {
+            try {
+              await deleteAudioFile(tempUri);
+            } catch {
+              // Silenciosamente ignorar fallo al borrar archivo temporal
+            }
+          }
+          setRecordingUri(null);
+          setRecordedDurationMillis(0);
+          setError(VOICE_RECORDER_ERRORS.RECORDING_TOO_SHORT);
+          return null;
+        }
+
+        let finalUri: string | null = null;
+        if (tempUri) {
+          finalUri = await persistAudioFile(tempUri);
+          setRecordingUri(finalUri);
+          setRecordedDurationMillis(duration);
+        }
+
+        return finalUri;
+      } catch (err) {
+        logDevError("useVoiceRecorder.stopRecording error:", err);
+        await setAudioModeAsync(PLAYBACK_AUDIO_MODE).catch(() => {});
+        setError(VOICE_RECORDER_ERRORS.STOP_RECORDING_FAILED);
+        return null;
+      } finally {
+        setIsPreparing(false);
+      }
+    });
   };
 
   const playRecording = async () => {
@@ -286,7 +304,8 @@ export function useVoiceRecorder(
 
       const isNearEnd =
         playerStatus.duration > 0 &&
-        Math.abs(playerStatus.currentTime - playerStatus.duration) < 0.2;
+        Math.abs(playerStatus.currentTime - playerStatus.duration) <
+          NEAR_END_THRESHOLD_SECONDS;
 
       if (playerStatus.didJustFinish || isNearEnd) {
         await player.seekTo(0);
@@ -294,7 +313,7 @@ export function useVoiceRecorder(
 
       player.play();
     } catch (err) {
-      console.error("useVoiceRecorder.playRecording error:", err);
+      logDevError("useVoiceRecorder.playRecording error:", err);
       setError(VOICE_RECORDER_ERRORS.PLAY_FAILED);
     }
   };
@@ -303,7 +322,7 @@ export function useVoiceRecorder(
     try {
       player.pause();
     } catch (err) {
-      console.error("useVoiceRecorder.pausePlayback error:", err);
+      logDevError("useVoiceRecorder.pausePlayback error:", err);
       setError(VOICE_RECORDER_ERRORS.PAUSE_PLAYBACK_FAILED);
     }
   };
@@ -313,36 +332,31 @@ export function useVoiceRecorder(
       player.pause();
       player.seekTo(0).catch(() => {});
     } catch (err) {
-      console.error("useVoiceRecorder.stopPlayback error:", err);
+      logDevError("useVoiceRecorder.stopPlayback error:", err);
       setError(VOICE_RECORDER_ERRORS.STOP_PLAYBACK_FAILED);
     }
   };
 
   const deleteRecording = async () => {
-    if (isBusyRef.current) {
-      return;
-    }
+    await runWithLock(isBusyRef, async () => {
+      try {
+        setError(null);
+        if (playerStatus.playing) {
+          player.pause();
+        }
 
-    isBusyRef.current = true;
-    try {
-      setError(null);
-      if (playerStatus.playing) {
-        player.pause();
+        if (recordingUri) {
+          await deleteAudioFile(recordingUri);
+        }
+
+        setIsRecordingPaused(false);
+        setRecordingUri(null);
+        setRecordedDurationMillis(0);
+      } catch (err) {
+        logDevError("useVoiceRecorder.deleteRecording error:", err);
+        setError(VOICE_RECORDER_ERRORS.DELETE_FAILED);
       }
-
-      if (recordingUri) {
-        await deleteAudioFile(recordingUri);
-      }
-
-      setIsRecordingPaused(false);
-      setRecordingUri(null);
-      setRecordedDurationMillis(0);
-    } catch (err) {
-      console.error("useVoiceRecorder.deleteRecording error:", err);
-      setError(VOICE_RECORDER_ERRORS.DELETE_FAILED);
-    } finally {
-      isBusyRef.current = false;
-    }
+    });
   };
 
   const clearError = () => {
@@ -364,8 +378,8 @@ export function useVoiceRecorder(
 
     // Reproducción
     isPlaying: playerStatus.playing,
-    playbackPositionMillis: Math.round((playerStatus.currentTime || 0) * 1000),
-    playbackDurationMillis: Math.round((playerStatus.duration || 0) * 1000),
+    playbackPositionMillis: secondsToMillis(playerStatus.currentTime),
+    playbackDurationMillis: secondsToMillis(playerStatus.duration),
 
     // Estado / Error
     isPreparing,
