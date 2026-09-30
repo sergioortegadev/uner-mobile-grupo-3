@@ -27,8 +27,9 @@ export const Button = ({
   const getVariantStyles = (pressed: boolean) => {
     if (disabled) {
       return {
-        backgroundColor: theme.border,
-        borderColor: theme.border,
+        backgroundColor: variant === "texto" ? "transparent" : theme.border,
+        borderWidth: variant === "contorno" ? 2 : 0,
+        borderColor: variant === "contorno" ? theme.border : "transparent",
       };
     }
 
