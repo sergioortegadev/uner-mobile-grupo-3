@@ -5,7 +5,10 @@ export const Card = ({ style, children, ...rest }: ViewProps) => {
   const theme = useTheme();
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }, style]}>
+    <View
+      style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }, style]}
+      {...rest}
+    >
       {children}
     </View>
   );
