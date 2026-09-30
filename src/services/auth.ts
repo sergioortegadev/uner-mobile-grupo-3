@@ -31,7 +31,7 @@ export class MockAuthService implements AuthService {
     return {
       user: usuarioEncontrado,
       access_token: tokenSimulado,
-      refresh_Token: refreshTokenSimulado,
+      refresh_token: refreshTokenSimulado,
       token_type: "Bearer",
       expires_in: "15d",
       access_token_expires_at: "2026-10-15T20:20:20.200Z",
