@@ -41,8 +41,14 @@ export const Input = ({
           style,
         ]}
         placeholderTextColor={theme.textSecondary}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
         editable={!disabled}
         {...rest}
       />
