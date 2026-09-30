@@ -1,5 +1,5 @@
 import { AudioModule } from "expo-audio";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
   type AppStateStatus,
@@ -18,15 +18,14 @@ export interface UseAudioPermissionsReturn extends AudioPermissionsState {
   checkPermissions: () => Promise<boolean>;
 }
 
-async function queryPermissions(errorMessageCheck: string): Promise<{
+async function queryPermissions(errorMessage: string): Promise<{
   granted: boolean;
   canAskAgain: boolean;
   error: string | null;
 }> {
   try {
-    const response = await AudioModule.getRecordingPermissionsAsync();
-    let granted = response.granted;
-    let canAskAgain = response.canAskAgain;
+    let { granted, canAskAgain } =
+      await AudioModule.getRecordingPermissionsAsync();
 
     // En Android  el PermissionsService interno
     // puede quedar desincronizado con los permisos reales del sistema operativo.
@@ -40,88 +39,89 @@ async function queryPermissions(errorMessageCheck: string): Promise<{
           granted = true;
           canAskAgain = true;
         }
-      } catch (err) {
-        console.error("PermissionsAndroid.check error:", err);
-      }
+      } catch {}
     }
 
     return { granted, canAskAgain, error: null };
-  } catch (err) {
-    console.error("useAudioPermissions.queryPermissions error:", err);
-    return { granted: false, canAskAgain: true, error: errorMessageCheck };
+  } catch {
+    return { granted: false, canAskAgain: true, error: errorMessage };
   }
 }
+
+const initialPermissionAudioState: AudioPermissionsState = {
+  permissionError: null,
+  canAskPermission: true,
+  permissionGranted: null,
+};
 
 export function useAudioPermissions(
   errorMessageCheck = "Error al verificar permisos del micrófono.",
   errorMessageRequest = "Error al solicitar permisos para el micrófono.",
 ): UseAudioPermissionsReturn {
-  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(
-    null,
-  );
-  const [canAskPermission, setCanAskPermission] = useState<boolean>(true);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [audioPermissionState, setAudioPermissionState] =
+    useState<AudioPermissionsState>(initialPermissionAudioState);
 
-  const checkPermissions = useCallback(async (): Promise<boolean> => {
-    const result = await queryPermissions(errorMessageCheck);
-    setPermissionGranted(result.granted);
-    setCanAskPermission(result.canAskAgain);
-    if (result.error) {
-      setPermissionError(result.error);
-    }
-    return result.granted;
-  }, [errorMessageCheck]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const syncPermissions = async () => {
-      const result = await queryPermissions(errorMessageCheck);
-      if (isMounted) {
-        setPermissionGranted(result.granted);
-        setCanAskPermission(result.canAskAgain);
-        if (result.error) {
-          setPermissionError(result.error);
-        }
+  const isMountedRef = useRef<boolean>(true);
+  const checkPermissions = useCallback(async () => {
+    const { granted, error, canAskAgain } =
+      await queryPermissions(errorMessageCheck);
+    if (error) {
+      if (isMountedRef.current) {
+        setAudioPermissionState((prevState) => ({
+          ...prevState,
+          permissionError: error,
+        }));
       }
-    };
-
-    syncPermissions();
+      return false;
+    }
+    if (isMountedRef.current) {
+      setAudioPermissionState({
+        permissionError: null,
+        canAskPermission: canAskAgain,
+        permissionGranted: granted,
+      });
+    }
+    return granted;
+  }, [errorMessageCheck]);
+  useEffect(() => {
+    checkPermissions();
 
     const subscription = AppState.addEventListener(
       "change",
       (nextAppState: AppStateStatus) => {
         if (nextAppState === "active") {
-          syncPermissions();
+          checkPermissions();
         }
       },
     );
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       subscription.remove();
     };
-  }, [errorMessageCheck]);
+  }, [checkPermissions]);
 
-  const requestPermission = useCallback(async (): Promise<boolean> => {
+  const requestPermission = async (): Promise<boolean> => {
     try {
-      setPermissionError(null);
       const { granted, canAskAgain } =
         await AudioModule.requestRecordingPermissionsAsync();
-      setPermissionGranted(granted);
-      setCanAskPermission(canAskAgain);
+      setAudioPermissionState({
+        permissionError: null,
+        canAskPermission: canAskAgain,
+        permissionGranted: granted,
+      });
       return granted;
-    } catch (err) {
-      console.error("useAudioPermissions.requestPermission error:", err);
-      setPermissionError(errorMessageRequest);
+    } catch {
+      setAudioPermissionState((prevState) => ({
+        ...prevState,
+        permissionError: errorMessageRequest,
+      }));
       return false;
     }
-  }, [errorMessageRequest]);
+  };
 
   return {
-    permissionGranted,
-    canAskPermission,
-    permissionError,
+    ...audioPermissionState,
     requestPermission,
     checkPermissions,
   };
