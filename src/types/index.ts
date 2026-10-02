@@ -91,3 +91,11 @@ export interface RespuestaAuth {
   access_token_expires_at?: string;
   refresh_token_expires_at?: string;
 }
+
+export interface RegistroUsuarioDTO {
+  nombre: string;
+  dni?: string;
+  email: string;
+  password: string;
+  telefono?: string | null;
+}
