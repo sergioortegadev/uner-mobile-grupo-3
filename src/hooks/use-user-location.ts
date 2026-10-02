@@ -1,0 +1,109 @@
+import { useCallback, useState } from "react";
+import {
+  checkLocationPermissions,
+  getCurrentLocation,
+  requestLocationPermissions,
+} from "../services/location";
+import {
+  Coordinates,
+  LocationOptions,
+  LocationResult,
+  LocationState,
+} from "../types";
+
+export function useUserLocation(initialOptions?: LocationOptions) {
+  const [state, setState] = useState<LocationState>({ status: "idle" });
+
+  const requestLocation = useCallback(
+    async (options?: LocationOptions): Promise<LocationResult | null> => {
+      const config = { ...initialOptions, ...options };
+
+      try {
+        setState({ status: "requesting_permission" });
+        const permissions = await checkLocationPermissions();
+
+        if (!permissions.granted) {
+          const requestResult = await requestLocationPermissions();
+          if (!requestResult.granted) {
+            setState({
+              status: "permission_denied",
+              message: "Permiso de ubicación denegado por el usuario.",
+              canAskAgain: requestResult.canAskAgain,
+            });
+            return null;
+          }
+        }
+
+        setState({ status: "fetching" });
+        const result = await getCurrentLocation(config);
+
+        setState({
+          status: "available",
+          coordinates: result.coordinates,
+          address: result.address,
+          accuracy: result.accuracy,
+          timestamp: result.timestamp,
+        });
+
+        return result;
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          if (err.message === "SERVICES_DISABLED") {
+            setState({
+              status: "services_disabled",
+              message:
+                "Los servicios de ubicación del dispositivo están desactivados.",
+            });
+            return null;
+          }
+
+          if (err.message === "PERMISSION_DENIED") {
+            const canAskAgain =
+              (err as Error & { canAskAgain?: boolean }).canAskAgain ?? true;
+            setState({
+              status: "permission_denied",
+              message: "Permiso de ubicación denegado por el usuario.",
+              canAskAgain,
+            });
+            return null;
+          }
+
+          setState({
+            status: "error",
+            message: err.message || "No se pudo obtener la ubicación.",
+          });
+          return null;
+        }
+
+        setState({
+          status: "error",
+          message: "Ocurrió un error inesperado al obtener la ubicación.",
+        });
+        return null;
+      }
+    },
+    [initialOptions],
+  );
+
+  const clearLocation = useCallback(() => {
+    setState({ status: "idle" });
+  }, []);
+
+  const coordinates: Coordinates | null =
+    state.status === "available" ? state.coordinates : null;
+
+  const address: string | null =
+    state.status === "available" && state.address ? state.address : null;
+
+  const isLoading =
+    state.status === "requesting_permission" || state.status === "fetching";
+
+  return {
+    state,
+    coordinates,
+    address,
+    isLoading,
+    requestLocation,
+    clearLocation,
+  };
+}
