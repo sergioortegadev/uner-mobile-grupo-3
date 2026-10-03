@@ -106,3 +106,4 @@ export interface RegistroUsuarioDTO {
 }
 
 export * from "./location";
+export * from './network';
