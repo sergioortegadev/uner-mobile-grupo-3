@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   StatusBar,
@@ -36,6 +37,7 @@ export interface CheckNearbyReportsScreenProps {
   typeId: Reporte["tipoId"];
   onBack?: () => void;
   onContinueNew?: () => void;
+  onAdhereSuccess?: (report: Reporte) => void;
 }
 
 export const CheckNearbyReportsScreen = ({
@@ -43,11 +45,14 @@ export const CheckNearbyReportsScreen = ({
   typeId,
   onBack,
   onContinueNew,
+  onAdhereSuccess,
 }: CheckNearbyReportsScreenProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nearbyItems, setNearbyItems] = useState<NearbyReportItem[]>([]);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [adheredReportId, setAdheredReportId] = useState<string | null>(null);
+  const [adheringReportId, setAdheringReportId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -115,6 +120,64 @@ export const CheckNearbyReportsScreen = ({
     [nearbyItems],
   );
 
+  const handleSelectReportToAdhere = (item: NearbyReportItem) => {
+    if (adheredReportId !== null || adheringReportId !== null) return;
+
+    Alert.alert(
+      "Confirmar adhesión",
+      `¿Deseas sumarte al reporte de ${item.typeName.toLowerCase()} en ${item.report.direccion}?`,
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Confirmar",
+          onPress: () => {
+            void handleExecuteAdhesion(item);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleExecuteAdhesion = async (item: NearbyReportItem) => {
+    const reportId = item.report.id;
+    try {
+      setAdheringReportId(reportId);
+      const updatedReport = await reportService.addAdhesion(reportId);
+
+      setAdheredReportId(reportId);
+
+      setNearbyItems((previous) =>
+        previous.map((it) =>
+          it.report.id === reportId ? { ...it, report: updatedReport } : it,
+        ),
+      );
+
+      const neighborsText =
+        updatedReport.adhesiones === 1
+          ? "1 vecino apoyando"
+          : `${updatedReport.adhesiones} vecinos apoyando`;
+
+      const message = `Te has sumado al reporte en ${updatedReport.direccion}. Ahora tiene ${neighborsText}.`;
+
+      Alert.alert("¡Adhesión registrada!", message, [
+        {
+          text: "Entendido",
+          onPress: () => onAdhereSuccess?.(updatedReport),
+        },
+      ]);
+    } catch {
+      Alert.alert(
+        "Error",
+        "No se pudo registrar tu adhesión. Intenta nuevamente.",
+      );
+    } finally {
+      setAdheringReportId(null);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -171,6 +234,11 @@ export const CheckNearbyReportsScreen = ({
               </View>
             }
             renderItem={({ item }) => {
+              const reportId = item.report.id;
+              const isSelected = adheredReportId === reportId;
+              const isAnyAdhered = adheredReportId !== null;
+              const isCurrentLoading = adheringReportId === reportId;
+
               const neighborsCountText =
                 item.report.adhesiones === 1
                   ? "1 vecino"
@@ -188,6 +256,18 @@ export const CheckNearbyReportsScreen = ({
                     </ThemedText>
 
                     <StatusBadge status={item.report.estado} />
+                  </View>
+
+                  <View style={styles.cardAction}>
+                    <Button
+                      title={isSelected ? "Sumado" : "Sumarme"}
+                      variant={isSelected ? "secundario" : "primario"}
+                      size="mediano"
+                      loading={isCurrentLoading}
+                      disabled={isAnyAdhered || isCurrentLoading}
+                      onPress={() => handleSelectReportToAdhere(item)}
+                      style={styles.sumarmeButton}
+                    />
                   </View>
                 </Card>
               );
@@ -261,6 +341,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   reportCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
@@ -274,7 +357,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardInfo: {
-    width: "100%",
+    flex: 1,
+    paddingRight: 12,
   },
   reportTitle: {
     fontSize: 16,
@@ -286,6 +370,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748B",
     marginBottom: 8,
+  },
+  cardAction: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  sumarmeButton: {
+    minWidth: 104,
+    height: 42,
+    borderRadius: 10,
+    paddingHorizontal: 16,
   },
   footerSafeArea: {
     backgroundColor: "#FFFFFF",
