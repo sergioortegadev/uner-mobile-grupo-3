@@ -14,8 +14,6 @@ import { calculateDistanceInMeters } from "@/utils/geo";
 import { coloresOficiales } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Icon } from "@/components/ui/icon";
 import {
   EmptyState,
@@ -23,17 +21,11 @@ import {
   LoadingState,
 } from "@/components/ui/state-views";
 import { NearbyMiniMap } from "./mini-mapa-cercanos";
-
-export interface NearbyReportItem {
-  report: Reporte;
-  distanceMeters: number;
-  typeName: string;
-}
-
-export type ReporteCercanoItem = NearbyReportItem;
+import { NearbyReportCard, NearbyReportItem } from "./reporte-cercano-card";
 
 export interface CheckNearbyReportsScreenProps {
-  coordinates: Coordenadas;
+  coordinates?: Coordenadas;
+  userCoordinates?: Coordenadas;
   typeId: Reporte["tipoId"];
   onBack?: () => void;
   onContinueNew?: () => void;
@@ -42,11 +34,16 @@ export interface CheckNearbyReportsScreenProps {
 
 export const CheckNearbyReportsScreen = ({
   coordinates,
+  userCoordinates: propUserCoordinates,
   typeId,
   onBack,
   onContinueNew,
   onAdhereSuccess,
 }: CheckNearbyReportsScreenProps) => {
+  const userCoordinates = propUserCoordinates ?? coordinates;
+  if (!userCoordinates) {
+    throw new Error("CheckNearbyReportsScreen requiere 'coordinates' o 'userCoordinates'");
+  }
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nearbyItems, setNearbyItems] = useState<NearbyReportItem[]>([]);
@@ -60,7 +57,7 @@ export const CheckNearbyReportsScreen = ({
     const fetchReports = async () => {
       try {
         const [reports, types] = await Promise.all([
-          reportService.getNearbyReports(coordinates, 50, typeId),
+          reportService.getNearbyReports(userCoordinates, 50, typeId),
           reportService.getReportTypes(),
         ]);
 
@@ -77,7 +74,7 @@ export const CheckNearbyReportsScreen = ({
         const mappedItems: NearbyReportItem[] = reports.map((report) => ({
           report,
           distanceMeters: calculateDistanceInMeters(
-            coordinates,
+            userCoordinates,
             report.coordenadas,
           ),
           typeName: formatTypeName(report.tipoId),
@@ -103,7 +100,7 @@ export const CheckNearbyReportsScreen = ({
     return () => {
       ignore = true;
     };
-  }, [coordinates, typeId, reloadTrigger]);
+  }, [userCoordinates, typeId, reloadTrigger]);
 
   const handleRetry = useCallback(() => {
     setIsLoading(true);
@@ -120,63 +117,80 @@ export const CheckNearbyReportsScreen = ({
     [nearbyItems],
   );
 
-  const handleSelectReportToAdhere = (item: NearbyReportItem) => {
-    if (adheredReportId !== null || adheringReportId !== null) return;
+  const handleExecuteAdhesion = useCallback(
+    async (item: NearbyReportItem) => {
+      const reportId = item.report.id;
+      try {
+        setAdheringReportId(reportId);
+        const updatedReport = await reportService.addAdhesion(reportId);
 
-    Alert.alert(
-      "Confirmar adhesión",
-      `¿Deseas sumarte al reporte de ${item.typeName.toLowerCase()} en ${item.report.direccion}?`,
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Confirmar",
-          onPress: () => {
-            void handleExecuteAdhesion(item);
+        setAdheredReportId(reportId);
+
+        setNearbyItems((previous) =>
+          previous.map((it) =>
+            it.report.id === reportId ? { ...it, report: updatedReport } : it,
+          ),
+        );
+
+        const message = `Te has sumado al reporte en ${updatedReport.direccion}.`;
+
+        Alert.alert("¡Adhesión registrada!", message, [
+          {
+            text: "Entendido",
+            onPress: () => onAdhereSuccess?.(updatedReport),
           },
-        },
-      ],
-    );
-  };
+        ]);
+      } catch {
+        Alert.alert(
+          "Error",
+          "No se pudo registrar tu adhesión. Intenta nuevamente.",
+        );
+      } finally {
+        setAdheringReportId(null);
+      }
+    },
+    [onAdhereSuccess],
+  );
 
-  const handleExecuteAdhesion = async (item: NearbyReportItem) => {
-    const reportId = item.report.id;
-    try {
-      setAdheringReportId(reportId);
-      const updatedReport = await reportService.addAdhesion(reportId);
+  const handleSelectReportToAdhere = useCallback(
+    (item: NearbyReportItem) => {
+      if (adheredReportId !== null || adheringReportId !== null) return;
 
-      setAdheredReportId(reportId);
-
-      setNearbyItems((previous) =>
-        previous.map((it) =>
-          it.report.id === reportId ? { ...it, report: updatedReport } : it,
-        ),
-      );
-
-      const neighborsText =
-        updatedReport.adhesiones === 1
-          ? "1 vecino apoyando"
-          : `${updatedReport.adhesiones} vecinos apoyando`;
-
-      const message = `Te has sumado al reporte en ${updatedReport.direccion}. Ahora tiene ${neighborsText}.`;
-
-      Alert.alert("¡Adhesión registrada!", message, [
-        {
-          text: "Entendido",
-          onPress: () => onAdhereSuccess?.(updatedReport),
-        },
-      ]);
-    } catch {
       Alert.alert(
-        "Error",
-        "No se pudo registrar tu adhesión. Intenta nuevamente.",
+        "Confirmar adhesión",
+        `¿Deseas sumarte al reporte de ${item.typeName.toLowerCase()} en ${item.report.direccion}?`,
+        [
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+          {
+            text: "Confirmar",
+            onPress: () => {
+              void handleExecuteAdhesion(item);
+            },
+          },
+        ],
       );
-    } finally {
-      setAdheringReportId(null);
-    }
-  };
+    },
+    [adheredReportId, adheringReportId, handleExecuteAdhesion],
+  );
+
+  const handleRenderItem = useCallback(
+    ({ item }: { item: NearbyReportItem }) => {
+      const reportId = item.report.id;
+      return (
+        <NearbyReportCard
+          item={item}
+          selected={adheredReportId === reportId}
+          disabled={adheredReportId !== null}
+          adhering={adheringReportId === reportId}
+          onAdhere={handleSelectReportToAdhere}
+        />
+      );
+    },
+    [adheredReportId, adheringReportId, handleSelectReportToAdhere],
+  );
 
   return (
     <View style={styles.container}>
@@ -228,50 +242,12 @@ export const CheckNearbyReportsScreen = ({
                 </ThemedText>
 
                 <NearbyMiniMap
-                  userCoordinates={coordinates}
+                  userCoordinates={userCoordinates}
                   reports={mapReports}
                 />
               </View>
             }
-            renderItem={({ item }) => {
-              const reportId = item.report.id;
-              const isSelected = adheredReportId === reportId;
-              const isAnyAdhered = adheredReportId !== null;
-              const isCurrentLoading = adheringReportId === reportId;
-
-              const neighborsCountText =
-                item.report.adhesiones === 1
-                  ? "1 vecino"
-                  : `${item.report.adhesiones} vecinos`;
-
-              return (
-                <Card style={styles.reportCard}>
-                  <View style={styles.cardInfo}>
-                    <ThemedText style={styles.reportTitle}>
-                      {item.typeName} · {item.report.direccion}
-                    </ThemedText>
-
-                    <ThemedText style={styles.reportSubtitle}>
-                      a {item.distanceMeters} m · {neighborsCountText}
-                    </ThemedText>
-
-                    <StatusBadge status={item.report.estado} />
-                  </View>
-
-                  <View style={styles.cardAction}>
-                    <Button
-                      title={isSelected ? "Sumado" : "Sumarme"}
-                      variant={isSelected ? "secundario" : "primario"}
-                      size="mediano"
-                      loading={isCurrentLoading}
-                      disabled={isAnyAdhered || isCurrentLoading}
-                      onPress={() => handleSelectReportToAdhere(item)}
-                      style={styles.sumarmeButton}
-                    />
-                  </View>
-                </Card>
-              );
-            }}
+            renderItem={handleRenderItem}
             ListEmptyComponent={
               <EmptyState message="No se encontraron otros reportes cercanos a menos de 50 metros." />
             }
@@ -294,7 +270,6 @@ export const CheckNearbyReportsScreen = ({
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -339,47 +314,6 @@ const styles = StyleSheet.create({
     color: "#475569",
     marginBottom: 4,
     lineHeight: 22,
-  },
-  reportCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
-    borderWidth: 1,
-    marginBottom: 12,
-    shadowColor: "#000000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardInfo: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  reportTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  reportSubtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    marginBottom: 8,
-  },
-  cardAction: {
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  sumarmeButton: {
-    minWidth: 104,
-    height: 42,
-    borderRadius: 10,
-    paddingHorizontal: 16,
   },
   footerSafeArea: {
     backgroundColor: "#FFFFFF",
