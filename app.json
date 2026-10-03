@@ -40,7 +40,13 @@
         }
       ],
       "expo-asset",
-      "@react-native-vector-icons/ionicons"
+      "@react-native-vector-icons/ionicons",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Esta aplicación necesita acceder a tu ubicación para geolocalizar los reportes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

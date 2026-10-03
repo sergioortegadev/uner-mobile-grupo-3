@@ -9,7 +9,12 @@ export interface Foto {
   momento: "problema" | "arreglo";
 }
 
-export type EstadoReporte = "recibido" | "en_revision" | "asignado" | "resuelto" | "rechazado";
+export type EstadoReporte =
+  | "recibido"
+  | "en_revision"
+  | "asignado"
+  | "resuelto"
+  | "rechazado";
 
 export type Rol = "vecino" | "operador";
 
@@ -99,3 +104,5 @@ export interface RegistroUsuarioDTO {
   password: string;
   telefono?: string | null;
 }
+
+export * from "./location";
