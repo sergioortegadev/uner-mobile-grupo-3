@@ -1,6 +1,14 @@
 import * as Network from 'expo-network';
 
-import { isOnlineFromState } from '@/types/network';
+/**
+ * Determina si un estado de red representa una conexión activa con acceso a internet.
+ */
+export function isOnlineFromState(
+  state?: Pick<Network.NetworkState, 'isConnected' | 'isInternetReachable'> | null
+): boolean {
+  if (!state) return false;
+  return state.isConnected === true && state.isInternetReachable !== false;
+}
 
 /**
  * Consulta el estado actual de la conexión de red.
@@ -39,11 +47,15 @@ export async function canAttemptSync(): Promise<boolean> {
 export function subscribeToNetworkChanges(
   listener: (isOnline: boolean, state: Network.NetworkState) => void
 ): () => void {
-  const subscription = Network.addNetworkStateListener((state) => {
-    listener(isOnlineFromState(state), state);
-  });
+  try {
+    const subscription = Network.addNetworkStateListener((state) => {
+      listener(isOnlineFromState(state), state);
+    });
 
-  return () => {
-    subscription.remove();
-  };
+    return () => {
+      subscription?.remove?.();
+    };
+  } catch {
+    return () => {};
+  }
 }

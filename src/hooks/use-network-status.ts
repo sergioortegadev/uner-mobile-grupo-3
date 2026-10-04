@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { NetworkState } from 'expo-network';
 
-import { getNetworkState, subscribeToNetworkChanges } from '@/services/network';
-import { AppNetworkStatus, isOnlineFromState } from '@/types/network';
+import {
+  getNetworkState,
+  isOnlineFromState,
+  subscribeToNetworkChanges,
+} from '@/services/network';
+import type { AppNetworkStatus } from '@/types/network';
 
 export function useNetworkStatus(): AppNetworkStatus {
   const [rawState, setRawState] = useState<NetworkState | null>(null);
