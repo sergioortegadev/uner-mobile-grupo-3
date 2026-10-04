@@ -246,7 +246,7 @@ export class MockReportService implements ReportService {
       .filter((report) => report.estado !== "resuelto" && report.estado !== "rechazado")
       .filter((report) => !typeId || report.tipoId === typeId)
       .filter((report) => {
-        const distance = calculateDistanceInMeters( coordinates,report.coordenadas,);
+        const distance = calculateDistanceInMeters(coordinates, report.coordenadas);
         return distance <= radiusMeters;
       })
       .sort((reportA, reportB) => {

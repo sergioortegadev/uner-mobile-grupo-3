@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
-  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -48,19 +47,17 @@ export const CheckNearbyReportsScreen = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nearbyItems, setNearbyItems] = useState<NearbyReportItem[]>([]);
-
-  const [reloadCount, setReloadCount] = useState(0);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   useEffect(() => {
     let ignore = false;
 
-    const load = async () => {
+    const fetchReports = async () => {
       try {
         const [reports, types] = await Promise.all([
           reportService.getNearbyReports(coordinates, 50, typeId),
           reportService.getReportTypes(),
         ]);
-        console.log("Nearby reports fetched:", reports);
 
         if (ignore) return;
 
@@ -96,18 +93,27 @@ export const CheckNearbyReportsScreen = ({
       }
     };
 
-    load();
+    fetchReports();
 
     return () => {
       ignore = true;
     };
-  }, [coordinates, typeId, reloadCount]);
+  }, [coordinates, typeId, reloadTrigger]);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     setIsLoading(true);
     setErrorMessage(null);
-    setReloadCount((prev) => prev + 1);
-  };
+    setReloadTrigger((count) => count + 1);
+  }, []);
+
+  const mapReports = useMemo(
+    () =>
+      nearbyItems.map((it) => ({
+        ...it.report,
+        distanciaMetros: it.distanceMeters,
+      })),
+    [nearbyItems],
+  );
 
   return (
     <View style={styles.container}>
@@ -118,7 +124,7 @@ export const CheckNearbyReportsScreen = ({
 
       {/* Cabecera azul */}
       <View style={styles.header}>
-        <SafeAreaView>
+        <SafeAreaView edges={["top"]}>
           <View style={styles.headerRow}>
             {onBack ? (
               <Pressable
@@ -160,10 +166,7 @@ export const CheckNearbyReportsScreen = ({
 
                 <NearbyMiniMap
                   userCoordinates={coordinates}
-                  reports={nearbyItems.map((it) => ({
-                    ...it.report,
-                    distanciaMetros: it.distanceMeters,
-                  }))}
+                  reports={mapReports}
                 />
               </View>
             }
@@ -197,7 +200,7 @@ export const CheckNearbyReportsScreen = ({
       </View>
 
       {/* Botón inferior fijo */}
-      <SafeAreaView style={styles.footerSafeArea}>
+      <SafeAreaView edges={["bottom"]} style={styles.footerSafeArea}>
         <View style={styles.footerContainer}>
           <Button
             title="No es ninguno, seguir"
@@ -222,7 +225,6 @@ const styles = StyleSheet.create({
     backgroundColor: coloresOficiales.primario,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 12) : 6,
   },
   headerRow: {
     flexDirection: "row",

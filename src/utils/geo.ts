@@ -1,4 +1,4 @@
-import { Coordenadas, Coordinates } from "../types";
+import type { Coordenadas, Coordinates } from "../types";
 
 export type GeoPoint = Coordenadas | Coordinates;
 
