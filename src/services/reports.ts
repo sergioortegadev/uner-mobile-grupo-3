@@ -4,22 +4,14 @@ import {
   Coordenadas,
   Cuadrilla,
   EstadoReporte,
-  Foto,
   Reporte,
   TipoDeReporte,
   Zona,
+  CreateReportDTO
 } from "../types/index";
 import { calculateDistanceInMeters } from "../utils/geo";
 
-export interface CreateReportDTO {
-  tipoId: string;
-  descripcion: string | null;
-  audioUrl: string | null;
-  fotos: Foto[];
-  coordenadas: Coordenadas;
-  direccion: string;
-  autorId: string;
-}
+
 
 export interface ReportFilterParams {
   estado?: EstadoReporte;
