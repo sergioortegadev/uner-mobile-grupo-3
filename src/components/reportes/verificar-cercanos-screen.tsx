@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   FlatList,
@@ -22,6 +28,7 @@ import {
 } from "@/components/ui/state-views";
 import { NearbyMiniMap } from "./mini-mapa-cercanos";
 import { NearbyReportCard, NearbyReportItem } from "./reporte-cercano-card";
+import { logDevError } from "@/helpers/log";
 
 export interface CheckNearbyReportsScreenProps {
   coordinates?: Coordenadas;
@@ -50,6 +57,8 @@ export const CheckNearbyReportsScreen = ({
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [adheredReportId, setAdheredReportId] = useState<string | null>(null);
   const [adheringReportId, setAdheringReportId] = useState<string | null>(null);
+
+  const isExecutingAdhesionRef = useRef(false);
 
   useEffect(() => {
     let ignore = false;
@@ -83,11 +92,13 @@ export const CheckNearbyReportsScreen = ({
         setNearbyItems(mappedItems);
       } catch (err: unknown) {
         if (ignore) return;
-        const errorText =
-          err instanceof Error
-            ? err.message
-            : "Error al cargar reportes cercanos";
-        setErrorMessage(errorText);
+          logDevError(
+            "[CheckNearbyReportsScreen] Error al cargar reportes:",
+            err,
+          );
+        setErrorMessage(
+          "No pudimos cargar los reportes cercanos. Por favor, verifica tu conexión e intenta nuevamente.",
+        );
       } finally {
         if (!ignore) {
           setIsLoading(false);
@@ -119,6 +130,9 @@ export const CheckNearbyReportsScreen = ({
 
   const handleExecuteAdhesion = useCallback(
     async (item: NearbyReportItem) => {
+      if (isExecutingAdhesionRef.current) return;
+      isExecutingAdhesionRef.current = true;
+
       const reportId = item.report.id;
       try {
         setAdheringReportId(reportId);
@@ -134,18 +148,27 @@ export const CheckNearbyReportsScreen = ({
 
         const message = `Te has sumado al reporte en ${updatedReport.direccion}.`;
 
-        Alert.alert("¡Adhesión registrada!", message, [
+        Alert.alert(
+          "¡Adhesión registrada!",
+          message,
+          [
+            {
+              text: "Entendido",
+              onPress: () => onAdhereSuccess?.(updatedReport),
+            },
+          ],
           {
-            text: "Entendido",
-            onPress: () => onAdhereSuccess?.(updatedReport),
+            cancelable: false,
+            onDismiss: () => onAdhereSuccess?.(updatedReport),
           },
-        ]);
+        );
       } catch {
         Alert.alert(
           "Error",
           "No se pudo registrar tu adhesión. Intenta nuevamente.",
         );
       } finally {
+        isExecutingAdhesionRef.current = false;
         setAdheringReportId(null);
       }
     },
@@ -154,7 +177,13 @@ export const CheckNearbyReportsScreen = ({
 
   const handleSelectReportToAdhere = useCallback(
     (item: NearbyReportItem) => {
-      if (adheredReportId !== null || adheringReportId !== null) return;
+      if (
+        adheredReportId !== null ||
+        adheringReportId !== null ||
+        isExecutingAdhesionRef.current
+      ) {
+        return;
+      }
 
       Alert.alert(
         "Confirmar adhesión",
@@ -179,11 +208,13 @@ export const CheckNearbyReportsScreen = ({
   const handleRenderItem = useCallback(
     ({ item }: { item: NearbyReportItem }) => {
       const reportId = item.report.id;
+      const isInteractionDisabled =
+        adheredReportId !== null || adheringReportId !== null;
       return (
         <NearbyReportCard
           item={item}
           selected={adheredReportId === reportId}
-          disabled={adheredReportId !== null}
+          disabled={isInteractionDisabled}
           adhering={adheringReportId === reportId}
           onAdhere={handleSelectReportToAdhere}
         />
@@ -263,7 +294,6 @@ export const CheckNearbyReportsScreen = ({
             variant="contorno"
             size="grande"
             onPress={onContinueNew}
-            style={styles.seguirButton}
           />
         </View>
       </SafeAreaView>
@@ -323,12 +353,5 @@ const styles = StyleSheet.create({
   footerContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  seguirButton: {
-    width: "100%",
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderColor: coloresOficiales.primario,
-    borderWidth: 2,
   },
 });
