@@ -22,10 +22,15 @@ export interface NearbyReportCardProps {
 
 export const NearbyReportCard = React.memo(
   ({ item, selected, disabled, adhering, onAdhere }: NearbyReportCardProps) => {
+    const adhesionsCount = item.report.adhesiones ?? 0;
     const neighborsCountText =
-      item.report.adhesiones === 1
+      adhesionsCount === 1
         ? "1 vecino"
-        : `${item.report.adhesiones} vecinos`;
+        : `${adhesionsCount} vecinos`;
+
+    const handlePress = React.useCallback(() => {
+      onAdhere(item);
+    }, [onAdhere, item]);
 
     return (
       <Card style={styles.reportCard}>
@@ -48,7 +53,7 @@ export const NearbyReportCard = React.memo(
             size="mediano"
             loading={adhering}
             disabled={disabled || adhering}
-            onPress={() => onAdhere(item)}
+            onPress={handlePress}
             style={styles.sumarmeButton}
           />
         </View>

@@ -20,10 +20,10 @@ function parseNearbyParams(
   typeIdParam?: string | string[],
   nextParam?: string | string[],
 ): ValidNearbyParams | null {
-  const latStr = getParam(latParam);
-  const lngStr = getParam(lngParam);
-  const typeId = getParam(typeIdParam);
-  const next = getParam(nextParam);
+  const latStr = getParam(latParam)?.trim();
+  const lngStr = getParam(lngParam)?.trim();
+  const typeId = getParam(typeIdParam)?.trim();
+  const rawNext = getParam(nextParam)?.trim();
 
   if (!latStr || !lngStr || !typeId) {
     return null;
@@ -47,7 +47,7 @@ function parseNearbyParams(
   return {
     coordinates: { latitud, longitud },
     typeId,
-    next: next?.trim() || undefined,
+    next: rawNext,
   };
 }
 
@@ -85,7 +85,7 @@ export default function NearbyReportsRoute() {
 
   const handleContinueNew = () => {
     if (next) {
-      router.push(next as Href);
+      router.replace(next as Href);
     } else {
       Alert.alert(
         "Nuevo Reporte",
