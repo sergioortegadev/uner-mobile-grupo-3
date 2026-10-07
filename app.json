@@ -40,7 +40,14 @@
         }
       ],
       "expo-asset",
-      "@react-native-vector-icons/ionicons"
+      "@react-native-vector-icons/ionicons",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Usamos la cámara para que saques la foto del problema que reportas.",
+          "photosPermission": "Accedemos a tus fotos para que adjuntes una imagen del problema."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
