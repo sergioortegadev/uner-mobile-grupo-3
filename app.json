@@ -46,7 +46,8 @@
         {
           "locationWhenInUsePermission": "Esta aplicación necesita acceder a tu ubicación para geolocalizar los reportes."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -37,6 +37,18 @@ export interface Reporte {
   sincronizado: boolean;
 }
 
+export interface CreateReportDTO {
+  tipoId: string;
+  descripcion: string | null;
+  audioUrl: string | null;
+  fotos: Foto[];
+  coordenadas: Coordenadas;
+  direccion: string;
+  autorId: string;
+  zonaId: string ;
+  cuadrillaId:string | null;
+}
+
 export interface TipoDeReporte {
   id: string;
   nombre: string;
@@ -107,3 +119,4 @@ export interface RegistroUsuarioDTO {
 
 export * from "./location";
 export * from './network';
+export * from './offline';
