@@ -32,6 +32,55 @@ export const MOCK_REPORT_TYPES: TipoDeReporte[] = [
 ];
 
 export const MOCK_REPORTS: Reporte[] = [
+
+  {
+    id: "rep-105",
+    codigo: "RC-2026-105",
+    tipoId: "type-1", // Bacheo y Calzada
+    descripcion: "Bache profundo en Rocamora 1250.",
+    audioUrl: null,
+    fotos: [
+      {
+        id: "ph-105-1",
+        url: "https://picsum.photos/id/1071/600/400",
+        momento: "problema",
+      },
+    ],
+    coordenadas: { latitud: -33.00877, longitud: -58.51408 },
+    direccion: "Rocamora 1250",
+    zonaId: "zone-1",
+    estado: "asignado",
+    autorId: "usr-vecino-2",
+    cuadrillaId: "crew-01",
+    duplicadoDe: null,
+    adhesiones: 3,
+    creadoEn: "2026-09-21T14:20:00-03:00",
+    sincronizado: true,
+  },
+  {
+    id: "rep-106",
+    codigo: "RC-2026-106",
+    tipoId: "type-1", // Bacheo y Calzada
+    descripcion: "Bache en calzada sobre Bolívar 1180.",
+    audioUrl: null,
+    fotos: [
+      {
+        id: "ph-106-1",
+        url: "https://picsum.photos/id/1072/600/400",
+        momento: "problema",
+      },
+    ],
+    coordenadas: { latitud: -33.00922, longitud: -58.51442 },
+    direccion: "Bolívar 1180",
+    zonaId: "zone-1",
+    estado: "recibido",
+    autorId: "usr-vecino-3",
+    cuadrillaId: null,
+    duplicadoDe: null,
+    adhesiones: 1,
+    creadoEn: "2026-09-22T09:10:00-03:00",
+    sincronizado: true,
+  },
   {
     id: "rep-101",
     codigo: "RC-2026-101",
