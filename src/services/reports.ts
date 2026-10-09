@@ -220,7 +220,7 @@ export class MockReportService implements ReportService {
     const reporte = this.reports.find((r) => r.id === reportId);
     if (!reporte) throw new Error("Reporte no encontrado");
 
-    reporte.adhesiones++;
+    reporte.adhesiones = (reporte.adhesiones ?? 0) + 1;
 
     // Registrar en el historial de cambios
     this.history.push({
