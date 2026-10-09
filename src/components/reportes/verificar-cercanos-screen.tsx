@@ -1,5 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   StatusBar,
@@ -13,8 +20,6 @@ import { calculateDistanceInMeters } from "@/utils/geo";
 import { coloresOficiales } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Icon } from "@/components/ui/icon";
 import {
   EmptyState,
@@ -22,32 +27,38 @@ import {
   LoadingState,
 } from "@/components/ui/state-views";
 import { NearbyMiniMap } from "./mini-mapa-cercanos";
-
-export interface NearbyReportItem {
-  report: Reporte;
-  distanceMeters: number;
-  typeName: string;
-}
-
-export type ReporteCercanoItem = NearbyReportItem;
+import { NearbyReportCard, NearbyReportItem } from "./reporte-cercano-card";
+import { logDevError } from "@/helpers/log";
 
 export interface CheckNearbyReportsScreenProps {
-  coordinates: Coordenadas;
+  coordinates?: Coordenadas;
+  userCoordinates?: Coordenadas;
   typeId: Reporte["tipoId"];
   onBack?: () => void;
   onContinueNew?: () => void;
+  onAdhereSuccess?: (report: Reporte) => void;
 }
 
 export const CheckNearbyReportsScreen = ({
   coordinates,
+  userCoordinates: propUserCoordinates,
   typeId,
   onBack,
   onContinueNew,
+  onAdhereSuccess,
 }: CheckNearbyReportsScreenProps) => {
+  const userCoordinates = propUserCoordinates ?? coordinates;
+  if (!userCoordinates) {
+    throw new Error("CheckNearbyReportsScreen requiere 'coordinates' o 'userCoordinates'");
+  }
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nearbyItems, setNearbyItems] = useState<NearbyReportItem[]>([]);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [adheredReportId, setAdheredReportId] = useState<string | null>(null);
+  const [adheringReportId, setAdheringReportId] = useState<string | null>(null);
+
+  const isExecutingAdhesionRef = useRef(false);
 
   useEffect(() => {
     let ignore = false;
@@ -55,7 +66,7 @@ export const CheckNearbyReportsScreen = ({
     const fetchReports = async () => {
       try {
         const [reports, types] = await Promise.all([
-          reportService.getNearbyReports(coordinates, 50, typeId),
+          reportService.getNearbyReports(userCoordinates, 50, typeId),
           reportService.getReportTypes(),
         ]);
 
@@ -72,7 +83,7 @@ export const CheckNearbyReportsScreen = ({
         const mappedItems: NearbyReportItem[] = reports.map((report) => ({
           report,
           distanceMeters: calculateDistanceInMeters(
-            coordinates,
+            userCoordinates,
             report.coordenadas,
           ),
           typeName: formatTypeName(report.tipoId),
@@ -81,11 +92,13 @@ export const CheckNearbyReportsScreen = ({
         setNearbyItems(mappedItems);
       } catch (err: unknown) {
         if (ignore) return;
-        const errorText =
-          err instanceof Error
-            ? err.message
-            : "Error al cargar reportes cercanos";
-        setErrorMessage(errorText);
+          logDevError(
+            "[CheckNearbyReportsScreen] Error al cargar reportes:",
+            err,
+          );
+        setErrorMessage(
+          "No pudimos cargar los reportes cercanos. Por favor, verifica tu conexión e intenta nuevamente.",
+        );
       } finally {
         if (!ignore) {
           setIsLoading(false);
@@ -98,7 +111,7 @@ export const CheckNearbyReportsScreen = ({
     return () => {
       ignore = true;
     };
-  }, [coordinates, typeId, reloadTrigger]);
+  }, [userCoordinates, typeId, reloadTrigger]);
 
   const handleRetry = useCallback(() => {
     setIsLoading(true);
@@ -113,6 +126,101 @@ export const CheckNearbyReportsScreen = ({
         distanciaMetros: it.distanceMeters,
       })),
     [nearbyItems],
+  );
+
+  const handleExecuteAdhesion = useCallback(
+    async (item: NearbyReportItem) => {
+      if (isExecutingAdhesionRef.current) return;
+      isExecutingAdhesionRef.current = true;
+
+      const reportId = item.report.id;
+      try {
+        setAdheringReportId(reportId);
+        const updatedReport = await reportService.addAdhesion(reportId);
+
+        setAdheredReportId(reportId);
+
+        setNearbyItems((previous) =>
+          previous.map((it) =>
+            it.report.id === reportId ? { ...it, report: updatedReport } : it,
+          ),
+        );
+
+        const message = `Te has sumado al reporte en ${updatedReport.direccion}.`;
+
+        Alert.alert(
+          "¡Adhesión registrada!",
+          message,
+          [
+            {
+              text: "Entendido",
+              onPress: () => onAdhereSuccess?.(updatedReport),
+            },
+          ],
+          {
+            cancelable: false,
+            onDismiss: () => onAdhereSuccess?.(updatedReport),
+          },
+        );
+      } catch {
+        Alert.alert(
+          "Error",
+          "No se pudo registrar tu adhesión. Intenta nuevamente.",
+        );
+      } finally {
+        isExecutingAdhesionRef.current = false;
+        setAdheringReportId(null);
+      }
+    },
+    [onAdhereSuccess],
+  );
+
+  const handleSelectReportToAdhere = useCallback(
+    (item: NearbyReportItem) => {
+      if (
+        adheredReportId !== null ||
+        adheringReportId !== null ||
+        isExecutingAdhesionRef.current
+      ) {
+        return;
+      }
+
+      Alert.alert(
+        "Confirmar adhesión",
+        `¿Deseas sumarte al reporte de ${item.typeName.toLowerCase()} en ${item.report.direccion}?`,
+        [
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+          {
+            text: "Confirmar",
+            onPress: () => {
+              void handleExecuteAdhesion(item);
+            },
+          },
+        ],
+      );
+    },
+    [adheredReportId, adheringReportId, handleExecuteAdhesion],
+  );
+
+  const handleRenderItem = useCallback(
+    ({ item }: { item: NearbyReportItem }) => {
+      const reportId = item.report.id;
+      const isInteractionDisabled =
+        adheredReportId !== null || adheringReportId !== null;
+      return (
+        <NearbyReportCard
+          item={item}
+          selected={adheredReportId === reportId}
+          disabled={isInteractionDisabled}
+          adhering={adheringReportId === reportId}
+          onAdhere={handleSelectReportToAdhere}
+        />
+      );
+    },
+    [adheredReportId, adheringReportId, handleSelectReportToAdhere],
   );
 
   return (
@@ -165,33 +273,12 @@ export const CheckNearbyReportsScreen = ({
                 </ThemedText>
 
                 <NearbyMiniMap
-                  userCoordinates={coordinates}
+                  userCoordinates={userCoordinates}
                   reports={mapReports}
                 />
               </View>
             }
-            renderItem={({ item }) => {
-              const neighborsCountText =
-                item.report.adhesiones === 1
-                  ? "1 vecino"
-                  : `${item.report.adhesiones} vecinos`;
-
-              return (
-                <Card style={styles.reportCard}>
-                  <View style={styles.cardInfo}>
-                    <ThemedText style={styles.reportTitle}>
-                      {item.typeName} · {item.report.direccion}
-                    </ThemedText>
-
-                    <ThemedText style={styles.reportSubtitle}>
-                      a {item.distanceMeters} m · {neighborsCountText}
-                    </ThemedText>
-
-                    <StatusBadge status={item.report.estado} />
-                  </View>
-                </Card>
-              );
-            }}
+            renderItem={handleRenderItem}
             ListEmptyComponent={
               <EmptyState message="No se encontraron otros reportes cercanos a menos de 50 metros." />
             }
@@ -207,14 +294,12 @@ export const CheckNearbyReportsScreen = ({
             variant="contorno"
             size="grande"
             onPress={onContinueNew}
-            style={styles.seguirButton}
           />
         </View>
       </SafeAreaView>
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -260,33 +345,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     lineHeight: 22,
   },
-  reportCard: {
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
-    borderWidth: 1,
-    marginBottom: 12,
-    shadowColor: "#000000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardInfo: {
-    width: "100%",
-  },
-  reportTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  reportSubtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    marginBottom: 8,
-  },
   footerSafeArea: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
@@ -295,12 +353,5 @@ const styles = StyleSheet.create({
   footerContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  seguirButton: {
-    width: "100%",
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderColor: coloresOficiales.primario,
-    borderWidth: 2,
   },
 });
