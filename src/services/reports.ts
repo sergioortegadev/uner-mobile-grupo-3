@@ -4,21 +4,14 @@ import {
   Coordenadas,
   Cuadrilla,
   EstadoReporte,
-  Foto,
   Reporte,
   TipoDeReporte,
   Zona,
+  CreateReportDTO
 } from "../types/index";
+import { calculateDistanceInMeters } from "../utils/geo";
 
-export interface CreateReportDTO {
-  tipoId: string;
-  descripcion: string | null;
-  audioUrl: string | null;
-  fotos: Foto[];
-  coordenadas: Coordenadas;
-  direccion: string;
-  autorId: string;
-}
+
 
 export interface ReportFilterParams {
   estado?: EstadoReporte;
@@ -39,7 +32,7 @@ export interface ReportService {
     repairPhotoUrl?: string | null,
   ): Promise<Reporte>;
   addAdhesion(reportId: string): Promise<Reporte>;
-  getNearbyReports(coordinates: Coordenadas, radiusMeters: number): Promise<Reporte[]>;
+  getNearbyReports(coordinates: Coordenadas, radiusMeters?: number, typeId?: string): Promise<Reporte[]>;
   getReportTypes(): Promise<TipoDeReporte[]>;
 
   getStatusHistory(reportId: string): Promise<CambioDeEstado[]>;
@@ -219,7 +212,7 @@ export class MockReportService implements ReportService {
     const reporte = this.reports.find((r) => r.id === reportId);
     if (!reporte) throw new Error("Reporte no encontrado");
 
-    reporte.adhesiones++;
+    reporte.adhesiones = (reporte.adhesiones ?? 0) + 1;
 
     // Registrar en el historial de cambios
     this.history.push({
@@ -234,11 +227,25 @@ export class MockReportService implements ReportService {
     return { ...reporte };
   }
 
-  async getNearbyReports(coordinates: Coordenadas, radiusMeters: number): Promise<Reporte[]> {
+  async getNearbyReports(
+    coordinates: Coordenadas,
+    radiusMeters: number = 50,
+    typeId?: string,
+  ): Promise<Reporte[]> {
     await delay();
-    // En mock retornamos los reportes activos para simular la búsqueda cercana
 
-    return this.reports.filter((r) => r.estado !== "resuelto" && r.estado !== "rechazado");
+    return this.reports
+      .filter((report) => report.estado !== "resuelto" && report.estado !== "rechazado")
+      .filter((report) => !typeId || report.tipoId === typeId)
+      .filter((report) => {
+        const distance = calculateDistanceInMeters(coordinates, report.coordenadas);
+        return distance <= radiusMeters;
+      })
+      .sort((reportA, reportB) => {
+        const distanceA = calculateDistanceInMeters(coordinates, reportA.coordenadas);
+        const distanceB = calculateDistanceInMeters(coordinates, reportB.coordenadas);
+        return distanceA - distanceB;
+      });
   }
 
   async getReportTypes(): Promise<TipoDeReporte[]> {
@@ -250,4 +257,5 @@ export class MockReportService implements ReportService {
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== "false";
 
-export const reportService: ReportService = USE_MOCK ? new MockReportService() : new MockReportService(); // cuando esté se cambia por -> ApiReportService()
+export const mockReportService = new MockReportService();
+export const reportService: ReportService = USE_MOCK ? mockReportService : mockReportService; // cuando esté se cambia por -> ApiReportService()

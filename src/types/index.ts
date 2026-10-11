@@ -9,7 +9,12 @@ export interface Foto {
   momento: "problema" | "arreglo";
 }
 
-export type EstadoReporte = "recibido" | "en_revision" | "asignado" | "resuelto" | "rechazado";
+export type EstadoReporte =
+  | "recibido"
+  | "en_revision"
+  | "asignado"
+  | "resuelto"
+  | "rechazado";
 
 export type Rol = "vecino" | "operador";
 
@@ -30,6 +35,18 @@ export interface Reporte {
   adhesiones: number;
   creadoEn: string;
   sincronizado: boolean;
+}
+
+export interface CreateReportDTO {
+  tipoId: string;
+  descripcion: string | null;
+  audioUrl: string | null;
+  fotos: Foto[];
+  coordenadas: Coordenadas;
+  direccion: string;
+  autorId: string;
+  zonaId: string ;
+  cuadrillaId:string | null;
 }
 
 export interface TipoDeReporte {
@@ -99,3 +116,7 @@ export interface RegistroUsuarioDTO {
   password: string;
   telefono?: string | null;
 }
+
+export * from "./location";
+export * from './network';
+export * from './offline';

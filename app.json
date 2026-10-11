@@ -47,7 +47,14 @@
           "cameraPermission": "Usamos la cámara para que saques la foto del problema que reportas.",
           "photosPermission": "Accedemos a tus fotos para que adjuntes una imagen del problema."
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Esta aplicación necesita acceder a tu ubicación para geolocalizar los reportes."
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
