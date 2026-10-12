@@ -6,10 +6,16 @@ import { useTheme } from "@/hooks/use-theme";
 import { Foto } from "@/types";
 import { type ReactNode, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { TypeSelector } from "@/components/reporte/type-selector";
+import { ErrorState, LoadingState } from "@/components/ui/state-views";
+import { useReportTypes } from "@/hooks/use-report-types";
+
 
 
 export default function NewReportScreen() {
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const theme = useTheme();
+  const { reportTypes, isLoading: reportTypesLoading, errorMessage: reportTypesError, retry: retryReportTypes } = useReportTypes();
 
   // Las fotos viven en la pantalla: las necesitamos para validar al enviar (y después para V10).
   const [photos, setPhotos] = useState<Foto[]>([]);
@@ -25,6 +31,10 @@ export default function NewReportScreen() {
       Alert.alert("Falta la foto", "Sacá o elegí al menos una foto del problema.");
       return;
     }
+    if (!selectedTypeId) {
+      Alert.alert("Falta el tipo de problema", "Seleccioná el tipo de problema.");
+      return;
+    }
 
     // TODO(V10): enviar el reporte con reportService.createReport.
     Alert.alert("Reporte listo", `${photos.length} foto(s) cargada(s).`);
@@ -35,7 +45,13 @@ export default function NewReportScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Section title="¿Qué pasa?">
           {/* V01 */}
-          <Placeholder text="Tipos de problema (V01)" />
+          {reportTypesLoading ? (
+            <LoadingState message="Cargando tipos de problema..." />
+          ) : reportTypesError ? (
+            <ErrorState message={reportTypesError} onRetry={retryReportTypes} />
+          ) : (
+            <TypeSelector types={reportTypes} selectedTypeId={selectedTypeId} onSelect={setSelectedTypeId} />
+          )}
         </Section>
 
         <Section title="Foto" note="(obligatoria)" error={triedToSend && missingPhoto ? "La foto es obligatoria." : null}>

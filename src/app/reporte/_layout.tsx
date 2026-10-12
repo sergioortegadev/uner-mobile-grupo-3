@@ -11,6 +11,7 @@ export default function ReporteLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "Nuevo reporte" }} />
+      <Stack.Screen name="cercanos" options={{ title: "¿Es el mismo problema?" }} />
     </Stack>
   );
 }
