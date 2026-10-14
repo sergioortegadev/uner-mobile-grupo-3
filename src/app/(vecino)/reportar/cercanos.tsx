@@ -10,16 +10,16 @@ type ValidNearbyParams = {
   next?: string;
 };
 
-function getParam(val: string | string[] | undefined): string | undefined {
+const getParam = (val: string | string[] | undefined): string | undefined => {
   return Array.isArray(val) ? val[0] : val;
-}
+};
 
-function parseNearbyParams(
+const parseNearbyParams = (
   latParam?: string | string[],
   lngParam?: string | string[],
   typeIdParam?: string | string[],
   nextParam?: string | string[],
-): ValidNearbyParams | null {
+): ValidNearbyParams | null => {
   const latStr = getParam(latParam)?.trim();
   const lngStr = getParam(lngParam)?.trim();
   const typeId = getParam(typeIdParam)?.trim();
@@ -49,9 +49,9 @@ function parseNearbyParams(
     typeId,
     next: rawNext,
   };
-}
+};
 
-export default function NearbyReportsRoute() {
+const NearbyReportsRoute = () => {
   const {
     latitud,
     longitud,
@@ -87,10 +87,7 @@ export default function NearbyReportsRoute() {
     if (next) {
       router.replace(next as Href);
     } else {
-      Alert.alert(
-        "Nuevo Reporte",
-        "Continuando al formulario de nuevo reporte...",
-      );
+      Alert.alert("Nuevo Reporte", "Continuando al formulario de nuevo reporte...");
     }
   };
 
@@ -111,4 +108,6 @@ export default function NearbyReportsRoute() {
       onAdhereSuccess={handleAdhereSuccess}
     />
   );
-}
+};
+
+export default NearbyReportsRoute;

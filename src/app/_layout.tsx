@@ -1,5 +1,5 @@
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import { LoadingState } from "@/components/ui/state-view";
+import { LoadingState } from "@/components/ui/state-views";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";

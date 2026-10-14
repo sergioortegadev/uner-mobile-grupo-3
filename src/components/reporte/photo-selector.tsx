@@ -3,7 +3,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Foto } from "@/types";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { Alert, Linking, StyleSheet, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
 
 export const MAX_PHOTOS = 2;
 
@@ -18,12 +18,12 @@ export interface PhotoSelectorProps {
  * V02 — Sección "Foto": sacar con la cámara o elegir de la galería.
  * Una foto es obligatoria (lo valida la pantalla) y se permite una segunda opcional.
  */
-export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
+const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
   const [permission, requestPermission] = ImagePicker.useCameraPermissions();
 
   const canAddPhoto = photos.length < MAX_PHOTOS;
 
-  function addPhoto(uri: string) {
+  const addPhoto = (uri: string) => {
     if (!canAddPhoto) {
       Alert.alert("No es posible agregar más fotos", `Solo se pueden agregar hasta ${MAX_PHOTOS} fotos.`);
       return;
@@ -35,9 +35,19 @@ export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
       momento: "problema",
     };
     onChangePhotos([...photos, newPhoto]);
-  }
+  };
 
-  async function takePhoto() {
+  const confirmRemovePhoto = (photoId: string) => {
+    Alert.alert("¿Quitar foto?", undefined, [
+      {
+        text: "Aceptar",
+        onPress: () => onChangePhotos(photos.filter((photo) => photo.id !== photoId)),
+      },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  };
+
+  const takePhoto = async () => {
     // Rama 1: todavía se está consultando el permiso.
     if (!permission) return;
 
@@ -70,9 +80,9 @@ export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
 
     if (result.canceled) return;
     addPhoto(result.assets[0].uri);
-  }
+  };
 
-  async function takeFromGallery() {
+  const takeFromGallery = async () => {
     // La galería usa el selector del sistema: no necesita permiso.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -81,7 +91,7 @@ export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
 
     if (result.canceled) return;
     addPhoto(result.assets[0].uri);
-  }
+  };
 
   return (
     <View style={styles.container}>
@@ -89,13 +99,20 @@ export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
         <View style={styles.photosRow}>
           {photos.map((photo, index) => (
             <View key={photo.id} style={styles.photoCard}>
-              <Image
-                source={{ uri: photo.url }}
-                style={styles.photo}
-                contentFit="cover"
-                transition={200}
-                accessibilityLabel={`Foto ${index + 1} del problema`}
-              />
+              <Pressable
+                onPress={() => confirmRemovePhoto(photo.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Quitar foto ${index + 1}`}
+                accessibilityHint="Muestra una confirmación antes de quitar la foto"
+              >
+                <Image
+                  source={{ uri: photo.url }}
+                  style={styles.photo}
+                  contentFit="cover"
+                  transition={200}
+                  accessibilityLabel={`Foto ${index + 1} del problema`}
+                />
+              </Pressable>
               <ThemedText type="small" themeColor="textSecondary">
                 {index === 0 ? "Foto principal" : "Segunda foto"}
               </ThemedText>
@@ -144,7 +161,7 @@ export function PhotoSelector({ photos, onChangePhotos }: PhotoSelectorProps) {
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -171,3 +188,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default PhotoSelector;
