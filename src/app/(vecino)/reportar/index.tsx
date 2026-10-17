@@ -87,7 +87,7 @@ const ReportarScreen = () => {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.content}>
         <SafeAreaView>
           <Section title="Nuevo Reporte: ¿Qué pasa?">
             {reportTypesLoading ? (
@@ -114,11 +114,11 @@ const ReportarScreen = () => {
           <Section title="Contanos" note="(opcional)">
             <Placeholder text="Descripción (V06 / V07)" />
           </Section>
-          <View style={[styles.enviar, { backgroundColor: theme.backgroundElement }]}>
-            <Button title="Enviar reporte" variant="accion" onPress={sendReport} />
-          </View>
         </SafeAreaView>
       </ScrollView>
+      <View style={[styles.enviar, { backgroundColor: theme.backgroundElement }]}>
+        <Button title="Enviar reporte" variant="accion" onPress={sendReport} />
+      </View>
     </ThemedView>
   );
 };
@@ -126,6 +126,9 @@ const ReportarScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    padding: Spacing.three,
   },
   section: {
     paddingBottom: Spacing.three,
