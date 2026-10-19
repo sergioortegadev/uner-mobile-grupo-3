@@ -4,6 +4,8 @@ import { Foto } from "@/types";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
+import { logDevError } from "@/helpers/log";
+
 
 export const MAX_PHOTOS = 2;
 
@@ -19,7 +21,7 @@ export interface PhotoSelectorProps {
  * Una foto es obligatoria (lo valida la pantalla) y se permite una segunda opcional.
  */
 const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
-  const [permission, requestPermission] = ImagePicker.useCameraPermissions();
+  const [permission, requestPermission, getPermissionStatus] = ImagePicker.useCameraPermissions();
 
   const canAddPhoto = photos.length < MAX_PHOTOS;
 
@@ -47,42 +49,74 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
     ]);
   };
 
-  const takePhoto = async () => {
-    // Rama 1: todavía se está consultando el permiso.
-    if (!permission) return;
+  // V03 para reemplazar una foto existente con una nueva.
+  const replacePhoto = (photoId: string, uri: string) => {
+    onChangePhotos(
+      photos.map((photo) => (photo.id === photoId ? { ...photo, id: `foto-${Date.now()}`, url: uri } : photo)),
+    );
+  };
+
+  const askReplacePhoto = (photoId: string) => {
+    Alert.alert("Cambiar foto", "¿De dónde obtener la nueva foto?",
+      [
+        { text: "Cámara", onPress: () => takePhoto((uri) => replacePhoto(photoId, uri)) },
+        { text: "Galería", onPress: () => takeFromGallery((uri) => replacePhoto(photoId, uri)) },
+        { text: "Cancelar", style: "cancel" }
+      ]
+    );
+  };
+
+  // opciones para cuando tocamos una foto
+  const showPhotoOptions = (photoId: string) => {
+    Alert.alert("Foto del reporte", "¿Qué querés hacer con esta foto?", [
+      { text: "Cambiar", onPress: () => askReplacePhoto(photoId) },
+      { text: "Quitar", onPress: () => confirmRemovePhoto(photoId) },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  };
+
+
+  const takePhoto = async (onPhoto: (uri: string) => void) => {
+    // Rama 1: consultamos el permiso EN ESTE MOMENTO (pudo cambiar en la configuración del teléfono).
+    let current = await getPermissionStatus();
 
     // Rama 2: no tenemos permiso.
-    if (!permission.granted) {
-      if (!permission.canAskAgain) {
+    if (!current.granted) {
+      if (!current.canAskAgain) {
         Alert.alert(
           "Permiso denegado",
           "No se puede solicitar el permiso de la cámara. Podés habilitarlo en la configuración o usar la galería.",
           [
-            { text: "Usar galería", onPress: takeFromGallery },
+            { text: "Usar galería", onPress: () => takeFromGallery(onPhoto) },
             { text: "Abrir configuración", onPress: () => Linking.openSettings() },
           ],
         );
         return;
       }
 
-      const response = await requestPermission();
-      if (!response.granted) {
+      current = await requestPermission();
+      if (!current.granted) {
         Alert.alert("Sin acceso a la cámara", "Podés elegir una foto de la galería.");
         return;
       }
     }
 
     // Rama 3: tenemos permiso.
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.7,
-    });
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+      });
 
-    if (result.canceled) return;
-    addPhoto(result.assets[0].uri);
+      if (result.canceled) return;
+      onPhoto(result.assets[0].uri);
+    } catch (error) {
+      logDevError("[PhotoSelector] No se pudo abrir la cámara:", error);
+      Alert.alert("No se pudo abrir la cámara", "Probá de nuevo o elegí una foto de la galería.");
+    }
   };
 
-  const takeFromGallery = async () => {
+  const takeFromGallery = async (onPhoto: (uri: string) => void) => {
     // La galería usa el selector del sistema: no necesita permiso.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -90,7 +124,7 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
     });
 
     if (result.canceled) return;
-    addPhoto(result.assets[0].uri);
+    onPhoto(result.assets[0].uri);
   };
 
   return (
@@ -100,10 +134,10 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
           {photos.map((photo, index) => (
             <View key={photo.id} style={styles.photoCard}>
               <Pressable
-                onPress={() => confirmRemovePhoto(photo.id)}
+                onPress={() => showPhotoOptions(photo.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Quitar foto ${index + 1}`}
-                accessibilityHint="Muestra una confirmación antes de quitar la foto"
+                accessibilityLabel={`Foto ${index + 1}`}
+                accessibilityHint="Abre las opciones para cambiar o quitar la foto"
               >
                 <Image
                   source={{ uri: photo.url }}
@@ -113,9 +147,6 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
                   accessibilityLabel={`Foto ${index + 1} del problema`}
                 />
               </Pressable>
-              <ThemedText type="small" themeColor="textSecondary">
-                {index === 0 ? "Foto principal" : "Segunda foto"}
-              </ThemedText>
             </View>
           ))}
         </View>
@@ -133,7 +164,7 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
             <Button
               title={photos.length === 0 ? "Tomar foto" : "Otra foto"}
               variant="primario"
-              onPress={takePhoto}
+              onPress={() => takePhoto(addPhoto)}
               disabled={!permission}
               accessibilityLabel="Tomar foto con la cámara"
               style={styles.button}
@@ -141,7 +172,7 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
             <Button
               title="Galería"
               variant="contorno"
-              onPress={takeFromGallery}
+              onPress={() => takeFromGallery(addPhoto)}
               accessibilityLabel="Elegir foto de la galería"
               style={styles.button}
             />
