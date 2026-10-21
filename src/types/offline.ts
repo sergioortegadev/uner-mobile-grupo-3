@@ -1,6 +1,6 @@
 import { CreateReportDTO, Foto, Coordenadas, Reporte } from './index';
 
-export type SyncStatus = 'pendiente' | 'sincronizando' | 'error' | 'sincronizado';
+export type SyncStatus = 'pendiente' | 'sincronizando' | 'sincronizado';
 
 export interface PendingReport {
   localId: string;
@@ -8,6 +8,7 @@ export interface PendingReport {
   reporte: Reporte;
   payload: CreateReportDTO;
   syncStatus: SyncStatus;
+  uncertainResponse: boolean;
   retryCount: number;
   createdAt: string;
   lastAttemptAt?: string;

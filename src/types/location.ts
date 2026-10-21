@@ -14,6 +14,8 @@ export type LocationState =
       timestamp: number;
     };
 
+export type LocationStatus = LocationState["status"];
+
 export interface LocationOptions {
   fetchAddress?: boolean;
   highAccuracy?: boolean;

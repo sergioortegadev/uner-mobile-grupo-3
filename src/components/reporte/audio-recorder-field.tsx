@@ -1,3 +1,4 @@
+import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { coloresOficiales as Colores } from "@/constants/theme";
@@ -9,7 +10,6 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View
 } from "react-native";
 
@@ -105,6 +105,7 @@ export function AudioRecorderField({
             size="mediano"
             variant="contorno"
             title={recorder.isRecordingPaused ? "▶ Reanudar" : "❚❚ Pausar"}
+            style={styles.recordingButton}
             accessibilityLabel={
               recorder.isRecordingPaused
                 ? "Reanudar grabación"
@@ -129,6 +130,7 @@ export function AudioRecorderField({
             size="mediano"
             variant="primario"
             title={`■ Detener (${formatDuration(recorder.recordingDurationMillis)})`}
+            style={styles.recordingButton}
             accessibilityLabel={`Detener grabación, tiempo ${formatDuration(recorder.recordingDurationMillis)}`}
             accessibilityHint="Detiene y guarda la grabación"
             onPress={handleStop}
@@ -169,11 +171,15 @@ export function AudioRecorderField({
                 style={[styles.trackFill, { width: `${progressPercent}%` }]}
               />
             </View>
-            <Text maxFontSizeMultiplier={1.5} style={styles.timeText}>
+            <ThemedText
+              maxFontSizeMultiplier={1.5}
+              type="small"
+              style={styles.timeText}
+            >
               {recorder.isPlaying
                 ? formatDuration(recorder.playbackPositionMillis)
                 : formatDuration(totalDuration)}
-            </Text>
+            </ThemedText>
           </View>
 
           <Pressable
@@ -191,33 +197,46 @@ export function AudioRecorderField({
       )}
 
       {!isRecordingActive && !recorder.recordingUri && (
-        <Pressable
-          disabled={isRecordDisabled}
-          accessibilityRole="button"
-          accessibilityLabel="Grabar audio"
-          accessibilityHint="Inicia la grabación con el micrófono"
-          accessibilityState={{ disabled: isRecordDisabled }}
-          onPress={() => {
-            recorder.startRecording();
-          }}
-          style={({ pressed }) => [
-            styles.recordButton,
-            pressed && !isRecordDisabled && styles.recordButtonPressed,
-            isRecordDisabled && styles.disabled,
-          ]}
-        >
-          <Ionicons name="mic" size={26} color="#FFFFFF" />
-        </Pressable>
+        <View style={styles.recordRow}>
+          <Pressable
+            disabled={isRecordDisabled}
+            accessibilityRole="button"
+            accessibilityLabel="Grabar audio"
+            accessibilityHint="Inicia la grabación con el micrófono"
+            accessibilityState={{ disabled: isRecordDisabled }}
+            onPress={() => {
+              recorder.startRecording();
+            }}
+            style={({ pressed }) => [
+              styles.recordButton,
+              pressed && !isRecordDisabled && styles.recordButtonPressed,
+              isRecordDisabled && styles.disabled,
+            ]}
+          >
+            <Ionicons name="mic" size={26} color="#FFFFFF" />
+          </Pressable>
+          <ThemedText
+            type="small"
+            themeColor="textSecondary"
+            maxFontSizeMultiplier={2}
+            style={styles.recordHint}
+          >
+            {recorder.isPreparing
+              ? "Preparando la grabación..."
+              : "Tocá el micrófono para grabar tu audio"}
+          </ThemedText>
+        </View>
       )}
 
       {recorder.error && (
-        <Text
+        <ThemedText
           maxFontSizeMultiplier={2}
+          themeColor="danger"
           style={styles.errorText}
           accessibilityRole="alert"
         >
           {recorder.error}
-        </Text>
+        </ThemedText>
       )}
 
       {isPermanentlyDenied && (
@@ -240,12 +259,17 @@ export function AudioRecorderField({
 const styles = StyleSheet.create({
   container: {
     gap: 12,
+    marginTop: 8
   },
   recordingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
+  },
+  recordingButton: {
+    flex: 1,
+    flexBasis: 0,
   },
   recordButton: {
     width: 56,
@@ -307,8 +331,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  recordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    maxWidth: 320,
+  },
+  recordHint: {
+    flex: 1,
+    flexShrink: 1,
+  },
   errorText: {
-    color: Colores.rechazado,
     fontSize: 15,
     fontWeight: "500",
   },

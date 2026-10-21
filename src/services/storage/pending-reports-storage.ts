@@ -1,6 +1,7 @@
 import { kvStorage } from './kv-client';
 import { CreateReportDTO, Reporte } from '@/types/index';
 import { PendingReport, SyncStatus } from '@/types/offline';
+import { persistReportPhotos } from '@/utils/photo-storage';
 
 const PENDING_REPORTS_KEY = '@reporte_ciudadano:reportes_pendientes';
 
@@ -9,16 +10,17 @@ const PENDING_REPORTS_KEY = '@reporte_ciudadano:reportes_pendientes';
  */
 function generateLocalId(): string {
   const timestamp = Date.now();
-  const random = Math.floor(1000 + Math.random() * 9000);
+  const random = Math.random().toString(36).slice(2, 8);
   return `loc-${timestamp}-${random}`;
 }
 
 /**
- * Genera un código provisional legible para reportes pendientes.
+ * Deriva el código provisional determinista a partir del identificador
+
  */
-function generateProvisionalCode(): string {
-  const random = Math.floor(100 + Math.random() * 900);
-  return `RC-PEND-${random}`;
+function generateProvisionalCode(localId: string): string {
+  const suffix = localId.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(-12);
+  return `RC-PEND-${suffix}`;
 }
 
 /**
@@ -51,18 +53,25 @@ export async function getLocalReportById(id: string): Promise<PendingReport | nu
 /**
  * Guarda un nuevo reporte en la cola local marcado como sincronizado: false.
  */
-export async function savePendingReport(payload: CreateReportDTO): Promise<PendingReport> {
+export async function savePendingReport(
+  payload: CreateReportDTO,
+  options?: { uncertainResponse?: boolean }
+): Promise<PendingReport> {
   const localId = generateLocalId();
-  const clientRequestId = `req-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
+
+  const fotosPersistidas = payload.fotos?.length
+    ? await persistReportPhotos(payload.fotos)
+    : [];
 
   const reporteLocal: Reporte = {
     id: localId,
-    codigo: generateProvisionalCode(),
+    codigo: generateProvisionalCode(localId),
     tipoId: payload.tipoId,
     descripcion: payload.descripcion,
     audioUrl: payload.audioUrl,
-    fotos: payload.fotos,
+    fotos: fotosPersistidas,
     coordenadas: payload.coordenadas,
     direccion: payload.direccion,
     zonaId: payload.zonaId ,
@@ -79,8 +88,12 @@ export async function savePendingReport(payload: CreateReportDTO): Promise<Pendi
     localId,
     clientRequestId,
     reporte: reporteLocal,
-    payload,
+    payload: {
+      ...payload,
+      fotos: fotosPersistidas,
+    },
     syncStatus: 'pendiente',
+    uncertainResponse: options?.uncertainResponse ?? false,
     retryCount: 0,
     createdAt: now,
   };
@@ -114,7 +127,7 @@ export async function updateSyncStatus(
     ...current,
     syncStatus: status,
     lastAttemptAt: new Date().toISOString(),
-    retryCount: status === 'error' ? current.retryCount + 1 : current.retryCount,
+    retryCount: status === 'sincronizando' ? current.retryCount + 1 : current.retryCount,
     errorMessage: errorMessage ?? current.errorMessage,
   };
 
@@ -125,11 +138,12 @@ export async function updateSyncStatus(
 
 /**
  * Marca un reporte local como sincronizado exitosamente, conservando el registro
- * y asociando el identificador del servidor.
+ * y asociando el identificador y el número de seguimiento definitivo del servidor.
  */
 export async function markReportAsSynced(
   localId: string,
-  serverReportId: string
+  serverReportId: string,
+  codigo: string
 ): Promise<PendingReport | null> {
   const queue = await getAllLocalReports();
   const index = queue.findIndex((item) => item.localId === localId);
@@ -142,10 +156,12 @@ export async function markReportAsSynced(
   const updated: PendingReport = {
     ...current,
     syncStatus: 'sincronizado',
+    uncertainResponse: false,
     serverReportId,
     reporte: {
       ...current.reporte,
       id: serverReportId,
+      codigo,
       sincronizado: true,
     },
     errorMessage: undefined,
