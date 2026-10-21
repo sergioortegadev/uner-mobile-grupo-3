@@ -32,7 +32,6 @@ export const MOCK_REPORT_TYPES: TipoDeReporte[] = [
 ];
 
 export const MOCK_REPORTS: Reporte[] = [
-
   {
     id: "rep-105",
     codigo: "RC-2026-105",
@@ -90,7 +89,7 @@ export const MOCK_REPORTS: Reporte[] = [
     fotos: [
       {
         id: "ph-101-1",
-        url: "https://picsum.photos/id/1071/600/400",
+        url: "https://picsum.photos/id/88/600/400",
         momento: "problema",
       },
     ],
@@ -156,7 +155,7 @@ export const MOCK_REPORTS: Reporte[] = [
     fotos: [
       {
         id: "ph-104-1",
-        url: "https://picsum.photos/id/1050/600/400",
+        url: "https://picsum.photos/id/57/600/400",
         momento: "problema",
       },
       {
@@ -174,6 +173,55 @@ export const MOCK_REPORTS: Reporte[] = [
     duplicadoDe: null,
     adhesiones: 8,
     creadoEn: "2026-09-18T11:30:00-03:00",
+    sincronizado: true,
+  },
+  {
+    id: "rep-107",
+    codigo: "RC-2026-107",
+    tipoId: "type-4", // Agua y Cloacas
+    descripcion: "Vertido de cloacas en vía publica.",
+    audioUrl: null,
+    fotos: [
+      {
+        id: "ph-104-1",
+        url: "https://picsum.photos/id/32/600/400",
+        momento: "problema",
+      },
+    ],
+    coordenadas: { latitud: -33.0182, longitud: -58.5098 },
+    direccion: "Bolívar 345",
+    zonaId: "zone-4",
+    estado: "recibido",
+    autorId: "usr-vecino-2",
+    cuadrillaId: null,
+    duplicadoDe: null,
+    adhesiones: 2,
+    creadoEn: "2026-10-20T11:30:00-03:00",
+    sincronizado: true,
+  },
+  {
+    id: "rep-108",
+    codigo: "RC-2026-108",
+    tipoId: "type-3", // Higiene y Malezas
+    descripcion:
+      "Yuyos altos en la esquina de diagonal y pedro torcuato, no se puede pasar por ahí, hay muchos mosquitos, y bichos raros, el otro día pasó una historia ocurrente, me encontraba yo en el puebo de pocococo, que en ese entonces se le decía paniaco, eso fue cuando le cambiaron el nombre, entonces, el señor se me acercó y medijo si el sombrero que yo traia era nuevo, y yo le dije...",
+    audioUrl: null,
+    fotos: [
+      {
+        id: "ph-104-1",
+        url: "https://picsum.photos/id/49/600/400",
+        momento: "problema",
+      },
+    ],
+    coordenadas: { latitud: -33.0182, longitud: -58.5098 },
+    direccion: "Bolívar 845",
+    zonaId: "zone-4",
+    estado: "recibido",
+    autorId: "usr-vecino-1",
+    cuadrillaId: null,
+    duplicadoDe: null,
+    adhesiones: 10,
+    creadoEn: "2026-10-19T11:30:00-03:00",
     sincronizado: true,
   },
 ];
@@ -242,15 +290,43 @@ export const MOCK_CREWS: Cuadrilla[] = [
   },
   {
     id: "crew-03",
-    nombre: "Cuadrilla Higiene y Poda",
+    nombre: "Cuadrilla Higiene y Poda 1",
     zonaId: "zone-3",
     especialidad: "Maleza y Poda",
     activa: true,
   },
   {
     id: "crew-04",
-    nombre: "Cuadrilla Obras Sanitarias 2",
+    nombre: "Cuadrilla Obras Sanitarias 1",
     zonaId: "zone-4",
+    especialidad: "Agua y Cloacas",
+    activa: true,
+  },
+  {
+    id: "crew-05",
+    nombre: "Cuadrilla B - Bacheo Nocturno",
+    zonaId: "zone-2",
+    especialidad: "Bacheo y Asfalto",
+    activa: true,
+  },
+  {
+    id: "crew-06",
+    nombre: "Cuadrilla Electrotecnia 2",
+    zonaId: "zone-1",
+    especialidad: "Alumbrado Público",
+    activa: true,
+  },
+  {
+    id: "crew-07",
+    nombre: "Cuadrilla Higiene y Poda 2",
+    zonaId: "zone-4",
+    especialidad: "Maleza y Poda",
+    activa: true,
+  },
+  {
+    id: "crew-08",
+    nombre: "Cuadrilla Obras Sanitarias 2",
+    zonaId: "zone-3",
     especialidad: "Agua y Cloacas",
     activa: true,
   },
