@@ -607,9 +607,12 @@ Representa una situación en la que la operación fue correcta pero **no existen
 
 #### Props
 
-| Prop      | Tipo     | Descripción                  |
-| --------- | -------- | ---------------------------- |
-| `message` | `string` | Mensaje mostrado al usuario. |
+| Prop          | Tipo                  | Descripción                                                          |
+| ------------- | --------------------- | -------------------------------------------------------------------- |
+| `message`     | `string`              | Mensaje mostrado al usuario.                                         |
+| `icon`        | nombre de `Ionicons`  | Opcional. Ícono grande mostrado arriba del mensaje.                  |
+| `actionLabel` | `string`              | Opcional. Texto del botón de acción (requiere `onAction`).           |
+| `onAction`    | `() => void`          | Opcional. Callback del botón de acción, por ejemplo "Quitar filtros". |
 
 Uso:
 
@@ -623,6 +626,17 @@ Ejemplo dentro de una Screen:
 if (!reportes.length) {
   return <EmptyState message="No hay reportes para mostrar." />;
 }
+```
+
+Con ícono y acción (por ejemplo, cuando hay filtros activos):
+
+```tsx
+<EmptyState
+  icon="file-tray-outline"
+  message="Ningún reporte coincide con los filtros."
+  actionLabel="Quitar filtros"
+  onAction={limpiarFiltros}
+/>
 ```
 
 ### Diferencia entre estados
@@ -644,6 +658,36 @@ La operación fue exitosa, pero no existen datos.
 ```
 
 La Screen debe determinar cuál de estos estados corresponde y renderizar el componente adecuado.
+
+---
+
+## FilterPill
+
+`FilterPill` es un selector compacto en forma de píldora, pensado para **barras de filtros** (varias píldoras en una fila). Al presionarlo abre un `Modal` con las opciones y siempre incluye la opción **"Todos"** (sin filtro).
+
+### Props
+
+| Prop            | Tipo                                 | Descripción                                                    |
+| --------------- | ------------------------------------ | -------------------------------------------------------------- |
+| `label`         | `string`                             | Nombre del filtro; se muestra mientras no hay valor elegido.   |
+| `options`       | `{ label: string; value: string }[]` | Opciones disponibles (sin incluir "Todos").                    |
+| `selectedValue` | `string \| null`                     | Valor elegido. `null` = sin filtro.                            |
+| `onSelect`      | `(value: string \| null) => void`    | Recibe el valor elegido, o `null` si se elige "Todos".         |
+
+Uso:
+
+```tsx
+<FilterPill
+  label="Estado"
+  options={ESTADO_OPTIONS}
+  selectedValue={filters.estado}
+  onSelect={(value) => setFilter("estado", value)}
+/>
+```
+
+Ocupa el ancho disponible (`flex: 1`), por lo que varias píldoras en una fila se reparten el espacio. Con un valor elegido se resalta con el color primario y muestra el texto de la opción.
+
+Diferencia con `Select`: `Select` es un campo de formulario (con etiqueta, alto de 56 y placeholder); `FilterPill` es para filtrar listas y permite volver a "Todos".
 
 ---
 

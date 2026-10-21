@@ -1,10 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ThemedText } from "@/components/themed-text";
+import { usePhotoPicker } from "@/hooks/use-photo-picker";
 import { Foto } from "@/types";
 import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
-import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
-import { logDevError } from "@/helpers/log";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 
 export const MAX_PHOTOS = 2;
@@ -21,7 +20,7 @@ export interface PhotoSelectorProps {
  * Una foto es obligatoria (lo valida la pantalla) y se permite una segunda opcional.
  */
 const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
-  const [permission, requestPermission, getPermissionStatus] = ImagePicker.useCameraPermissions();
+  const { permission, takePhoto, takeFromGallery } = usePhotoPicker();
 
   const canAddPhoto = photos.length < MAX_PHOTOS;
 
@@ -75,57 +74,6 @@ const PhotoSelector = ({ photos, onChangePhotos }: PhotoSelectorProps) => {
     ]);
   };
 
-
-  const takePhoto = async (onPhoto: (uri: string) => void) => {
-    // Rama 1: consultamos el permiso EN ESTE MOMENTO (pudo cambiar en la configuración del teléfono).
-    let current = await getPermissionStatus();
-
-    // Rama 2: no tenemos permiso.
-    if (!current.granted) {
-      if (!current.canAskAgain) {
-        Alert.alert(
-          "Permiso denegado",
-          "No se puede solicitar el permiso de la cámara. Podés habilitarlo en la configuración o usar la galería.",
-          [
-            { text: "Usar galería", onPress: () => takeFromGallery(onPhoto) },
-            { text: "Abrir configuración", onPress: () => Linking.openSettings() },
-          ],
-        );
-        return;
-      }
-
-      current = await requestPermission();
-      if (!current.granted) {
-        Alert.alert("Sin acceso a la cámara", "Podés elegir una foto de la galería.");
-        return;
-      }
-    }
-
-    // Rama 3: tenemos permiso.
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        quality: 0.7,
-      });
-
-      if (result.canceled) return;
-      onPhoto(result.assets[0].uri);
-    } catch (error) {
-      logDevError("[PhotoSelector] No se pudo abrir la cámara:", error);
-      Alert.alert("No se pudo abrir la cámara", "Probá de nuevo o elegí una foto de la galería.");
-    }
-  };
-
-  const takeFromGallery = async (onPhoto: (uri: string) => void) => {
-    // La galería usa el selector del sistema: no necesita permiso.
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.7,
-    });
-
-    if (result.canceled) return;
-    onPhoto(result.assets[0].uri);
-  };
 
   return (
     <View style={styles.container}>

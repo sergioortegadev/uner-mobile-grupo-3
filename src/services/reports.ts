@@ -38,8 +38,18 @@ export interface ReportService {
   getStatusHistory(reportId: string): Promise<CambioDeEstado[]>;
   getZones(): Promise<Zona[]>;
   getCrews(zonaId?: string): Promise<Cuadrilla[]>;
-  assignCrew(reportId: string, crewId: string): Promise<Reporte>;
-  markAsDuplicate(reportId: string, originalReportId: string): Promise<Reporte>;
+  assignCrew(
+    reportId: string,
+    crewId: string,
+    operatorId?: string | null,
+    comment?: string | null,
+  ): Promise<Reporte>;
+  markAsDuplicate(
+    reportId: string,
+    originalReportId: string,
+    comment?: string | null,
+    operatorId?: string | null,
+  ): Promise<Reporte>;
 }
 
 // Simular latencia de red, (600ms)
@@ -74,7 +84,12 @@ export class MockReportService implements ReportService {
     return resultado;
   }
 
-  async assignCrew(reportId: string, crewId: string): Promise<Reporte> {
+  async assignCrew(
+    reportId: string,
+    crewId: string,
+    operatorId: string | null = null,
+    comment: string | null = null,
+  ): Promise<Reporte> {
     await delay();
 
     const reporte = this.reports.find((r) => r.id === reportId);
@@ -88,15 +103,20 @@ export class MockReportService implements ReportService {
       id: `hist-${Date.now()}`,
       reporteId: reportId,
       estado: "asignado",
-      comentario: `Asignado a la cuadrilla ${crewId}`,
-      operadorId: "usr-02",
+      comentario: comment || `Asignado a la cuadrilla ${crewId}`,
+      operadorId: operatorId,
       fechaHora: new Date().toISOString(),
     });
 
     return { ...reporte };
   }
 
-  async markAsDuplicate(reportId: string, originalReportId: string): Promise<Reporte> {
+  async markAsDuplicate(
+    reportId: string,
+    originalReportId: string,
+    comment: string | null = null,
+    operatorId: string | null = null,
+  ): Promise<Reporte> {
     await delay();
 
     const reporte = this.reports.find((r) => r.id === reportId);
@@ -110,8 +130,8 @@ export class MockReportService implements ReportService {
       id: `hist-${Date.now()}`,
       reporteId: reportId,
       estado: "rechazado",
-      comentario: `Marcado como duplicado del reporte ${originalReportId}`,
-      operadorId: "usr-02",
+      comentario: comment || `Reclamo duplicado con id: ${originalReportId}`,
+      operadorId: operatorId,
       fechaHora: new Date().toISOString(),
     });
 
@@ -134,8 +154,12 @@ export class MockReportService implements ReportService {
     if (filters?.autorId) {
       resultado = resultado.filter((r) => r.autorId === filters.autorId);
     }
-    // PRD: mostrar ordenado: mas nuevo al mas viejo
-    return resultado.sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+    // Bandeja: más adhesiones primero; en empate, el más nuevo primero
+    return resultado.sort(
+      (a, b) =>
+        (b.adhesiones ?? 0) - (a.adhesiones ?? 0) ||
+        new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime(),
+    );
   }
 
   async getReportById(reportId: string): Promise<Reporte | null> {
@@ -158,7 +182,7 @@ export class MockReportService implements ReportService {
       fotos: data.fotos,
       coordenadas: data.coordenadas,
       direccion: data.direccion,
-      zonaId: "zona-1",
+      zonaId: "zone-1",
       estado: "recibido",
       autorId: data.autorId,
       cuadrillaId: null,
