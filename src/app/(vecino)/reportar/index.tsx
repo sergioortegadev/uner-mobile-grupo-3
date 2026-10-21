@@ -2,7 +2,14 @@ import { ThemedView } from "@/components/themed-view";
 import { ThemedText } from "@/components/themed-text";
 import PhotoSelector from "@/components/reporte/photo-selector";
 import { TypeSelector } from "@/components/reporte/type-selector";
-import { DescriptionField, type DescriptionValue } from "@/components/reporte/description-field";
+import {
+  DescriptionField,
+  type DescriptionValue,
+} from "@/components/reporte/description-field";
+import {
+  PendingReportModal,
+  type PendingReportSummary,
+} from "@/components/reporte/pending-report-modal";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/state-views";
 import { Spacing } from "@/constants/theme";
@@ -16,10 +23,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  SavedReportModal,
-  type PendingConfirmation,
-} from "@/components/reporte/saved-report-modal";
 
 const Section = ({
   title,
@@ -44,7 +47,11 @@ const Section = ({
       </ThemedText>
       {children}
       {error && (
-        <ThemedText type="smallBold" themeColor="danger" accessibilityRole="alert">
+        <ThemedText
+          type="smallBold"
+          themeColor="danger"
+          accessibilityRole="alert"
+        >
           ✖ {error}
         </ThemedText>
       )}
@@ -74,7 +81,9 @@ const ReportarScreen = () => {
     errorMessage: locationError,
   } = useUserLocation();
 
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(params.tipoId ?? null);
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(
+    params.tipoId ?? null,
+  );
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [descripcionValue, setDescripcionValue] = useState<DescriptionValue>({
     descripcion: null,
@@ -94,7 +103,8 @@ const ReportarScreen = () => {
   const zonaId = params.zonaId ?? "";
   const [fieldErrors, setFieldErrors] = useState<ReportFieldErrors>({});
   const [isSending, setIsSending] = useState(false);
-  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+  const [pendingSummary, setPendingSummary] =
+    useState<PendingReportSummary | null>(null);
 
   const resetForm = () => {
     setSelectedTypeId(null);
@@ -122,46 +132,54 @@ const ReportarScreen = () => {
         zonaId,
       });
 
-      if (result.status === "invalido") {
-        setFieldErrors(result.errors);
-        if (result.errors.autorId) {
-          Alert.alert("Sesión requerida", result.errors.autorId);
+      switch (result.status) {
+        case "invalido": {
+          setFieldErrors(result.errors);
+          if (result.errors.autorId) {
+            Alert.alert("Sesión requerida", result.errors.autorId);
+          }
+          return;
         }
-        return;
-      }
 
-      if (result.status === "enviado") {
-        Alert.alert(
-          "¡Reporte enviado!",
-          `Número de seguimiento:\n\n${result.codigo}\n\nTu reporte ha sido confirmado por el municipio.`,
-          [{ text: "Aceptar" }]
-        );
+        case "enviado": {
+          Alert.alert(
+            "¡Reporte enviado!",
+            `Número de seguimiento:\n\n${result.codigo}\n\nTu reporte ha sido confirmado por el municipio.`,
+            [{ text: "Aceptar" }],
+          );
 
-        resetForm();
-        return;
-      }
+          resetForm();
+          return;
+        }
 
-      if (result.status === "pendiente") {
-        const tipoSeleccionado = reportTypes.find((t) => t.id === selectedTypeId);
-        const fotoPreview =
-          result.reporte.payload.fotos?.[0]?.url ||
-          result.reporte.reporte.fotos?.[0]?.url ||
-          fotos[0]?.url;
+        case "pendiente": {
+          const tipoSeleccionado = reportTypes.find(
+            (t) => t.id === selectedTypeId,
+          );
 
-        setPendingConfirmation({
-          codigo: result.codigo,
-          tipoNombre: tipoSeleccionado?.nombre ?? "Reporte",
-          direccion: result.reporte.reporte.direccion || direccion || "Ubicación seleccionada",
-          fotoUri: fotoPreview,
-        });
+          setPendingSummary({
+            codigo: result.codigo,
+            tipoNombre: tipoSeleccionado?.nombre ?? "Reporte",
+            direccion:
+              result.reporte.reporte.direccion || "Ubicación seleccionada",
+            fotoUri: result.reporte.payload.fotos[0]?.url || null,
+          });
 
-        resetForm();
-        return;
+          resetForm();
+          return;
+        }
+
+        default: {
+          const estadoNoContemplado: never = result;
+          throw new Error(
+            `Estado de envío no contemplado: ${String(estadoNoContemplado)}`,
+          );
+        }
       }
     } catch {
       Alert.alert(
         "Error inesperado",
-        "No se pudo completar el envío del reporte. Intentá nuevamente."
+        "No se pudo completar el envío del reporte. Intentá nuevamente.",
       );
     } finally {
       setIsSending(false);
@@ -176,7 +194,10 @@ const ReportarScreen = () => {
             {reportTypesLoading ? (
               <LoadingState message="Cargando tipos de problema..." />
             ) : reportTypesError ? (
-              <ErrorState message={reportTypesError} onRetry={retryReportTypes} />
+              <ErrorState
+                message={reportTypesError}
+                onRetry={retryReportTypes}
+              />
             ) : (
               <TypeSelector
                 types={reportTypes}
@@ -191,11 +212,7 @@ const ReportarScreen = () => {
             )}
           </Section>
 
-          <Section
-            title="Foto"
-            note="(obligatoria)"
-            error={fieldErrors.fotos}
-          >
+          <Section title="Foto" note="(obligatoria)" error={fieldErrors.fotos}>
             <PhotoSelector
               photos={fotos}
               onChangePhotos={(nextFotos) => {
@@ -207,14 +224,18 @@ const ReportarScreen = () => {
             />
           </Section>
 
-          <Section title="¿Dónde?" error={fieldErrors.coordenadas ?? locationError}>
+          <Section
+            title="¿Dónde?"
+            error={fieldErrors.coordenadas ?? locationError}
+          >
             {coordenadas ? (
               <View style={[styles.placeholder, { borderColor: theme.border }]}>
                 <ThemedText type="smallBold">
                   📍 {direccion || "Ubicación seleccionada"}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Lat: {coordenadas.latitud.toFixed(5)}, Lon: {coordenadas.longitud.toFixed(5)}
+                  Lat: {coordenadas.latitud.toFixed(5)}, Lon:{" "}
+                  {coordenadas.longitud.toFixed(5)}
                 </ThemedText>
               </View>
             ) : (
@@ -238,7 +259,10 @@ const ReportarScreen = () => {
                       });
                       if (loc.address) setDireccion(loc.address);
                       if (fieldErrors.coordenadas) {
-                        setFieldErrors((prev) => ({ ...prev, coordenadas: undefined }));
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          coordenadas: undefined,
+                        }));
                       }
                     }
                   }}
@@ -247,20 +271,29 @@ const ReportarScreen = () => {
             )}
           </Section>
 
-          <Section title="Contanos" note="(opcional)" error={fieldErrors.descripcion}>
+          <Section
+            title="Contanos"
+            note="(opcional)"
+            error={fieldErrors.descripcion}
+          >
             <DescriptionField
               value={descripcionValue}
               onChange={(next) => {
                 setDescripcionValue(next);
                 if (fieldErrors.descripcion) {
-                  setFieldErrors((prev) => ({ ...prev, descripcion: undefined }));
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    descripcion: undefined,
+                  }));
                 }
               }}
             />
           </Section>
         </SafeAreaView>
       </ScrollView>
-      <View style={[styles.enviar, { backgroundColor: theme.backgroundElement }]}>
+      <View
+        style={[styles.enviar, { backgroundColor: theme.backgroundElement }]}
+      >
         <Button
           title={isSending ? "Enviando reporte..." : "Enviar reporte"}
           variant="accion"
@@ -269,16 +302,15 @@ const ReportarScreen = () => {
           loading={isSending}
         />
       </View>
-      <SavedReportModal
-        visible={pendingConfirmation !== null}
-        data={pendingConfirmation}
-        onClose={() => setPendingConfirmation(null)}
+      <PendingReportModal
+        key={pendingSummary?.codigo}
+        data={pendingSummary}
         onGoToMap={() => {
-          setPendingConfirmation(null);
+          setPendingSummary(null);
           router.navigate("/(vecino)");
         }}
         onGoToMyReports={() => {
-          setPendingConfirmation(null);
+          setPendingSummary(null);
           router.navigate("/(vecino)/mis-reportes");
         }}
       />
