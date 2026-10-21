@@ -12,10 +12,14 @@ import { useUserLocation } from "@/hooks/use-user-location";
 import { sendReport } from "@/services/report-sending";
 import type { ReportFieldErrors } from "@/services/report-sending/types";
 import type { Coordenadas, Foto } from "@/types";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SavedReportModal,
+  type PendingConfirmation,
+} from "@/components/reporte/saved-report-modal";
 
 const Section = ({
   title,
@@ -90,6 +94,16 @@ const ReportarScreen = () => {
   const zonaId = params.zonaId ?? "";
   const [fieldErrors, setFieldErrors] = useState<ReportFieldErrors>({});
   const [isSending, setIsSending] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+
+  const resetForm = () => {
+    setSelectedTypeId(null);
+    setFotos([]);
+    setDescripcionValue({ descripcion: null, audioUrl: null });
+    setCoordenadas(null);
+    setDireccion("");
+    setFieldErrors({});
+  };
 
   const handleSendReport = async () => {
     if (isSending) return;
@@ -123,11 +137,26 @@ const ReportarScreen = () => {
           [{ text: "Aceptar" }]
         );
 
-        // Limpiar el formulario para un nuevo reporte
-        setSelectedTypeId(null);
-        setFotos([]);
-        setDescripcionValue({ descripcion: null, audioUrl: null });
-        setFieldErrors({});
+        resetForm();
+        return;
+      }
+
+      if (result.status === "pendiente") {
+        const tipoSeleccionado = reportTypes.find((t) => t.id === selectedTypeId);
+        const fotoPreview =
+          result.reporte.payload.fotos?.[0]?.url ||
+          result.reporte.reporte.fotos?.[0]?.url ||
+          fotos[0]?.url;
+
+        setPendingConfirmation({
+          codigo: result.codigo,
+          tipoNombre: tipoSeleccionado?.nombre ?? "Reporte",
+          direccion: result.reporte.reporte.direccion || direccion || "Ubicación seleccionada",
+          fotoUri: fotoPreview,
+        });
+
+        resetForm();
+        return;
       }
     } catch {
       Alert.alert(
@@ -240,6 +269,19 @@ const ReportarScreen = () => {
           loading={isSending}
         />
       </View>
+      <SavedReportModal
+        visible={pendingConfirmation !== null}
+        data={pendingConfirmation}
+        onClose={() => setPendingConfirmation(null)}
+        onGoToMap={() => {
+          setPendingConfirmation(null);
+          router.navigate("/(vecino)");
+        }}
+        onGoToMyReports={() => {
+          setPendingConfirmation(null);
+          router.navigate("/(vecino)/mis-reportes");
+        }}
+      />
     </ThemedView>
   );
 };
