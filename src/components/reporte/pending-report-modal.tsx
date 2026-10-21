@@ -8,6 +8,7 @@ import { Image } from "expo-image";
 import { useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ThemedView } from "../themed-view";
 
 /** Datos que la pantalla Reportar ya resolvió para el aviso de reporte pendiente. */
 export interface PendingReportSummary {
@@ -22,7 +23,6 @@ export interface PendingReportModalProps {
   onGoToMap: () => void;
   onGoToMyReports: () => void;
 }
-
 
 export const PendingReportModal = ({
   data,
@@ -109,14 +109,16 @@ export const PendingReportModal = ({
               </ThemedText>
 
               <View style={styles.statusRow}>
-                <Icon
-                  name="time-outline"
-                  size={16}
-                  color={theme.textSecondary}
-                />
-                <ThemedText type="small" themeColor="textSecondary">
-                  Pendiente de envío
-                </ThemedText>
+                <ThemedView style={styles.statusBox}>
+                  <Icon
+                    name="time-outline"
+                    size={16}
+                    color={theme.textSecondary}
+                  />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Pendiente de envío
+                  </ThemedText>
+                </ThemedView>
               </View>
             </Card>
 
@@ -217,6 +219,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.one,
+  },
+  statusBox: {
+    borderStyle: "dashed",
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.two,
   },
   codeValue: {
     fontSize: 18,
