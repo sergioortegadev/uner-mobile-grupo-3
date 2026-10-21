@@ -1,6 +1,7 @@
 import { kvStorage } from './kv-client';
 import { CreateReportDTO, Reporte } from '@/types/index';
 import { PendingReport, SyncStatus } from '@/types/offline';
+import { persistReportPhotos } from '@/utils/photo-storage';
 
 const PENDING_REPORTS_KEY = '@reporte_ciudadano:reportes_pendientes';
 
@@ -60,13 +61,17 @@ export async function savePendingReport(
   const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
 
+  const fotosPersistidas = payload.fotos?.length
+    ? await persistReportPhotos(payload.fotos)
+    : [];
+
   const reporteLocal: Reporte = {
     id: localId,
     codigo: generateProvisionalCode(localId),
     tipoId: payload.tipoId,
     descripcion: payload.descripcion,
     audioUrl: payload.audioUrl,
-    fotos: payload.fotos,
+    fotos: fotosPersistidas,
     coordenadas: payload.coordenadas,
     direccion: payload.direccion,
     zonaId: payload.zonaId ,
@@ -83,7 +88,10 @@ export async function savePendingReport(
     localId,
     clientRequestId,
     reporte: reporteLocal,
-    payload,
+    payload: {
+      ...payload,
+      fotos: fotosPersistidas,
+    },
     syncStatus: 'pendiente',
     uncertainResponse: options?.uncertainResponse ?? false,
     retryCount: 0,
