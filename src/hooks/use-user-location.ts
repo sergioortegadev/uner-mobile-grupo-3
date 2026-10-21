@@ -118,11 +118,24 @@ export function useUserLocation(initialOptions?: LocationOptions) {
   const isLoading =
     state.status === "requesting_permission" || state.status === "fetching";
 
+  const isAvailable = state.status === "available";
+
+  const hasError =
+    state.status === "permission_denied" ||
+    state.status === "services_disabled" ||
+    state.status === "error";
+
+  const errorMessage: string | null =
+    "message" in state ? state.message : null;
+
   return {
     state,
     coordinates,
     address,
     isLoading,
+    isAvailable,
+    hasError,
+    errorMessage,
     requestLocation,
     clearLocation,
   };

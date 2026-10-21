@@ -64,7 +64,11 @@ const ReportarScreen = () => {
     errorMessage: reportTypesError,
     retry: retryReportTypes,
   } = useReportTypes();
-  const { requestLocation } = useUserLocation();
+  const {
+    requestLocation,
+    isLoading: locating,
+    errorMessage: locationError,
+  } = useUserLocation();
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(params.tipoId ?? null);
   const [fotos, setFotos] = useState<Foto[]>([]);
@@ -174,7 +178,7 @@ const ReportarScreen = () => {
             />
           </Section>
 
-          <Section title="¿Dónde?" error={fieldErrors.coordenadas}>
+          <Section title="¿Dónde?" error={fieldErrors.coordenadas ?? locationError}>
             {coordenadas ? (
               <View style={[styles.placeholder, { borderColor: theme.border }]}>
                 <ThemedText type="smallBold">
@@ -194,6 +198,8 @@ const ReportarScreen = () => {
                   variant="contorno"
                   size="mediano"
                   style={styles.locationButton}
+                  loading={locating}
+                  disabled={locating}
                   onPress={async () => {
                     const loc = await requestLocation({ fetchAddress: true });
                     if (loc?.coordinates) {
@@ -202,9 +208,9 @@ const ReportarScreen = () => {
                         longitud: loc.coordinates.longitude,
                       });
                       if (loc.address) setDireccion(loc.address);
-                    }
-                    if (fieldErrors.coordenadas) {
-                      setFieldErrors((prev) => ({ ...prev, coordenadas: undefined }));
+                      if (fieldErrors.coordenadas) {
+                        setFieldErrors((prev) => ({ ...prev, coordenadas: undefined }));
+                      }
                     }
                   }}
                 />

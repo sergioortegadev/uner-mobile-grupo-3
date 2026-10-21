@@ -52,20 +52,22 @@ export function DescriptionField({
       <View style={styles.toggleRow}>
         <Button
           title="Escribir"
-          size="mediano"
+          size="grande"
           variant={mode === "texto" ? "primario" : "contorno"}
           accessibilityLabel="Escribir descripción"
           accessibilityState={{ selected: mode === "texto" }}
           onPress={selectTextMode}
+          style={styles.toggleButton}
         />
 
         <Button
           title="● Grabar audio"
-          size="mediano"
+          size="grande"
           variant={mode === "audio" ? "primario" : "contorno"}
           accessibilityLabel="Grabar descripción en audio"
           accessibilityState={{ selected: mode === "audio" }}
           onPress={selectAudioMode}
+          style={styles.toggleButton}
         />
       </View>
 
@@ -98,6 +100,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
+  },
+  toggleButton: {
+    flex: 1,
+    flexBasis: 0,
   },
   textInput: {
     height: "auto",
