@@ -1,6 +1,7 @@
 import { authService } from '@/services/auth';
+import { isOnline } from '@/services/network';
 import { reportService } from '@/services/reports';
-import { getPendingReports } from '@/services/storage';
+import { getPendingReports, savePendingReport } from '@/services/storage';
 import type { NewReportInput, SendReportResult, SyncSummary } from './types';
 import { validateNewReport } from './validation';
 
@@ -24,6 +25,22 @@ export async function sendReport(data: NewReportInput): Promise<SendReportResult
     };
   }
 
+  const online = await isOnline();
+
+  if (!online) {
+    const pendingItem = await savePendingReport({
+      ...validation.datos,
+      autorId: author.id,
+      cuadrillaId: null,
+    });
+
+    return {
+      status: 'pendiente',
+      reporte: pendingItem,
+      codigo: pendingItem.reporte.codigo,
+    };
+  }
+
   const report = await reportService.createReport({
     ...validation.datos,
     autorId: author.id,
@@ -41,6 +58,9 @@ export async function syncPendingReports(): Promise<SyncSummary> {
 
   return { enviados: 0, pendientes: pending.length };
 }
+
+export const enviarReporte = sendReport;
+export const sincronizarPendientes = syncPendingReports;
 
 export type {
   InvalidReportResult,
