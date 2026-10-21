@@ -1,4 +1,5 @@
 import { MOCK_USERS } from "../mocks/auth";
+import { kvStorage } from "./storage/kv-client";
 import { CredencialesAuth, RegistroUsuarioDTO, RespuestaAuth, Usuario } from "../types";
 
 export interface AuthService {
@@ -9,37 +10,54 @@ export interface AuthService {
   getStoredToken(): Promise<string | null>;
 }
 
+const SESSION_KEY = "@reporte_ciudadano:sesion";
+
 const delay = (ms: number = 500) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class MockAuthService implements AuthService {
   private currentUser: Usuario | null = null;
   private currentToken: string | null = null;
 
+
+  private async guardarSesion(respuesta: RespuestaAuth): Promise<void> {
+    this.currentUser = respuesta.user;
+    this.currentToken = respuesta.access_token;
+    await kvStorage.setItem(SESSION_KEY, respuesta);
+  }
+
+  private async restaurarSesion(): Promise<void> {
+    if (this.currentUser && this.currentToken) {
+      return;
+    }
+    const sesion = await kvStorage.getItem<RespuestaAuth>(SESSION_KEY);
+    if (sesion) {
+      this.currentUser = sesion.user;
+      this.currentToken = sesion.access_token;
+    }
+  }
+
   async login(credenciales: CredencialesAuth): Promise<RespuestaAuth> {
     await delay();
 
     const emailLimpio = credenciales.email.toLowerCase().trim();
 
-    // Escenario 1: Error de comunicación / Falla de servidor o red
+
     if (emailLimpio === "error@gualeguaychu.gov.ar" || emailLimpio.endsWith("@offline.com")) {
       throw new Error("Error de conexión a internet");
     }
 
     const usuarioEncontrado = MOCK_USERS[emailLimpio];
 
-    // 🔴 Escenario 2: Credenciales inválidas (Usuario inexistente o clave incorrecta)
+  
     if (!usuarioEncontrado || credenciales.password !== "123456") {
       throw new Error("Usuario o password incorrecta");
     }
 
-    // 🟢 Escenario 3: Respuesta exitosa (Vecino u Operador). Generar token JWT simulado
+
     const tokenSimulado = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken.${usuarioEncontrado.id}`;
     const refreshTokenSimulado = `e7cJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9`;
 
-    this.currentUser = usuarioEncontrado;
-    this.currentToken = tokenSimulado;
-
-    return {
+    const respuesta: RespuestaAuth = {
       user: usuarioEncontrado,
       access_token: tokenSimulado,
       refresh_token: refreshTokenSimulado,
@@ -48,6 +66,10 @@ export class MockAuthService implements AuthService {
       access_token_expires_at: "2026-10-15T20:20:20.200Z",
       refresh_token_expires_at: "2026-12-15T20:20:20.200Z",
     };
+
+    await this.guardarSesion(respuesta);
+
+    return respuesta;
   }
 
   async register(datos: RegistroUsuarioDTO): Promise<RespuestaAuth> {
@@ -55,17 +77,17 @@ export class MockAuthService implements AuthService {
 
     const emailLimpio = datos.email.toLowerCase().trim();
 
-    // 🔴 Escenario de Error de Red / Conexión
+    // Error de Red / Conexión
     if (emailLimpio === "error@gualeguaychu.gov.ar" || emailLimpio.endsWith("@offline.com")) {
       throw new Error("Error de conexión a internet");
     }
 
-    // 🔴 Escenario de Validación: Usuario ya registrado
+    // User ya registrado
     if (MOCK_USERS[emailLimpio]) {
       throw new Error("El correo electrónico ya se encuentra registrado.");
     }
 
-    // 🟢 Construcción del nuevo vecino
+    // Construcción del nuevo vecino
     const nuevoUsuario: Usuario = {
       id: `usr-${Date.now()}`,
       nombre: datos.nombre,
@@ -84,10 +106,7 @@ export class MockAuthService implements AuthService {
     const tokenSimulado = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken.${nuevoUsuario.id}`;
     const refreshTokenSimulado = `e7cJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9`;
 
-    this.currentUser = nuevoUsuario;
-    this.currentToken = tokenSimulado;
-
-    return {
+    const respuesta: RespuestaAuth = {
       user: nuevoUsuario,
       access_token: tokenSimulado,
       refresh_token: refreshTokenSimulado,
@@ -96,21 +115,28 @@ export class MockAuthService implements AuthService {
       access_token_expires_at: "2026-10-15T20:20:20.200Z",
       refresh_token_expires_at: "2026-12-15T20:20:20.200Z",
     };
+
+    await this.guardarSesion(respuesta);
+
+    return respuesta;
   }
 
   async logout(): Promise<void> {
     await delay(250);
     this.currentUser = null;
     this.currentToken = null;
+    await kvStorage.removeItem(SESSION_KEY);
   }
 
   async getCurrentUser(): Promise<Usuario | null> {
     await delay(350);
+    await this.restaurarSesion();
     return this.currentUser;
   }
 
   async getStoredToken(): Promise<string | null> {
     await delay(250);
+    await this.restaurarSesion();
     return this.currentToken;
   }
 }

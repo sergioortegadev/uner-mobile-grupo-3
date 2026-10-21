@@ -1,0 +1,201 @@
+import { router } from "expo-router";
+import { useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { authService } from "@/services/auth";
+import { RegistroUsuarioDTO } from "@/types";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DNI_REGEX = /^\d{7,8}$/;
+const PASSWORD_MIN_LENGTH = 6;
+
+type ErroresRegistro = {
+  nombre?: string;
+  dni?: string;
+  email?: string;
+  password?: string;
+};
+
+export default function RegistroScreen() {
+  const [nombre, setNombre] = useState("");
+  const [dni, setDni] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [password, setPassword] = useState("");
+  const [errores, setErrores] = useState<ErroresRegistro>({});
+  const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+
+  async function registrarse() {
+    const nombreLimpio = nombre.trim();
+    const dniLimpio = dni.trim();
+    const emailLimpio = email.trim();
+    const telefonoLimpio = telefono.trim();
+    const nuevosErrores: ErroresRegistro = {};
+
+    if (!nombreLimpio) {
+      nuevosErrores.nombre = "Ingresá tu nombre.";
+    }
+
+    if (dniLimpio && !DNI_REGEX.test(dniLimpio)) {
+      nuevosErrores.dni = "El DNI debe tener 7 u 8 dígitos.";
+    }
+
+    if (!emailLimpio) {
+      nuevosErrores.email = "Ingresá tu correo electrónico.";
+    } else if (!EMAIL_REGEX.test(emailLimpio)) {
+      nuevosErrores.email = "El correo electrónico no es válido.";
+    }
+
+    if (!password) {
+      nuevosErrores.password = "Ingresá una contraseña.";
+    } else if (password.length < PASSWORD_MIN_LENGTH) {
+      nuevosErrores.password = `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;
+    }
+
+    setErrores(nuevosErrores);
+    setErrorGeneral(null);
+    if (Object.keys(nuevosErrores).length > 0) return;
+
+    const datos: RegistroUsuarioDTO = {
+      nombre: nombreLimpio,
+      email: emailLimpio,
+      password,
+      telefono: telefonoLimpio || null,
+      ...(dniLimpio ? { dni: dniLimpio } : {}),
+    };
+
+    setCargando(true);
+    try {
+      await authService.register(datos);
+      router.replace("/");
+    } catch (error) {
+      setErrorGeneral(error instanceof Error ? error.message : "No se pudo completar el registro.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  function volverAlLogin() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/login");
+    }
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ThemedText type="title">Crear cuenta</ThemedText>
+            <ThemedText themeColor="textSecondary">Completá tus datos para registrarte como vecino.</ThemedText>
+
+            <View style={styles.form}>
+              <Input
+                label="Nombre y apellido"
+                value={nombre}
+                onChangeText={setNombre}
+                error={errores.nombre}
+                autoCapitalize="words"
+                autoComplete="name"
+                disabled={cargando}
+              />
+              <Input
+                label="DNI (opcional)"
+                value={dni}
+                onChangeText={setDni}
+                error={errores.dni}
+                keyboardType="number-pad"
+                maxLength={8}
+                disabled={cargando}
+              />
+              <Input
+                label="Correo electrónico"
+                value={email}
+                onChangeText={setEmail}
+                error={errores.email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                disabled={cargando}
+              />
+              <Input
+                label="Teléfono (opcional)"
+                value={telefono}
+                onChangeText={setTelefono}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                disabled={cargando}
+              />
+              <Input
+                label="Contraseña"
+                value={password}
+                onChangeText={setPassword}
+                error={errores.password}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="new-password"
+                disabled={cargando}
+              />
+
+              {errorGeneral ? (
+                <ThemedText themeColor="danger" style={styles.errorGeneral}>
+                  ✖ {errorGeneral}
+                </ThemedText>
+              ) : null}
+
+              <View style={styles.acciones}>
+                <Button title="Registrarme" onPress={registrarse} loading={cargando} />
+                <Button
+                  title="¿Ya tenés cuenta? Iniciá sesión"
+                  variant="texto"
+                  onPress={volverAlLogin}
+                  disabled={cargando}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  safeArea: {
+    flex: 1,
+    maxWidth: MaxContentWidth,
+  },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  form: {
+    marginTop: Spacing.three,
+  },
+  errorGeneral: {
+    marginBottom: Spacing.three,
+  },
+  acciones: {
+    gap: Spacing.two,
+  },
+});
