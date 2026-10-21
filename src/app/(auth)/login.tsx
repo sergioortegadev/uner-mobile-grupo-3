@@ -56,7 +56,7 @@ const LoginScreen = () => {
     <ThemedView style={styles.flex}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title">Iniciar Session</ThemedText>
+          <ThemedText type="title">Iniciar Sesión</ThemedText>
 
           <View style={styles.form}>
             <Input
