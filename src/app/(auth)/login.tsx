@@ -91,7 +91,7 @@ const LoginScreen = () => {
           </View>
 
           <ThemedText type="default" themeColor="textSecondary" style={styles.textoRegistro}>
-            Si no tienes cuenta
+            Si no tiene cuenta:
           </ThemedText>
           <Button title="Registrarse" onPress={() => router.push("/(auth)/register")} disabled={cargando} />
         </ScrollView>

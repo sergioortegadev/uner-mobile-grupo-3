@@ -1,5 +1,6 @@
 import { MOCK_USERS } from "../mocks/auth";
 import { kvStorage } from "./storage/kv-client";
+import { secureStorage } from "./storage/secure-client";
 import { CredencialesAuth, RegistroUsuarioDTO, RespuestaAuth, Usuario } from "../types";
 
 export interface AuthService {
@@ -10,7 +11,12 @@ export interface AuthService {
   getStoredToken(): Promise<string | null>;
 }
 
-const SESSION_KEY = "@reporte_ciudadano:sesion";
+// Los tokens van al almacenamiento seguro; los datos del usuario, al almacenamiento común.
+// (Las claves de SecureStore solo admiten letras, números, ".", "-" y "_").
+const TOKENS_KEY = "reporte_ciudadano.tokens";
+const USER_KEY = "@reporte_ciudadano:usuario";
+
+type TokensSesion = Omit<RespuestaAuth, "user">;
 
 const delay = (ms: number = 500) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -18,21 +24,30 @@ export class MockAuthService implements AuthService {
   private currentUser: Usuario | null = null;
   private currentToken: string | null = null;
 
-
+  /**
+   * Guarda la sesión en memoria: los tokens en almacenamiento seguro y el usuario en el común.
+   */
   private async guardarSesion(respuesta: RespuestaAuth): Promise<void> {
-    this.currentUser = respuesta.user;
+    const { user, ...tokens } = respuesta;
+    this.currentUser = user;
     this.currentToken = respuesta.access_token;
-    await kvStorage.setItem(SESSION_KEY, respuesta);
+    await Promise.all([secureStorage.setItem<TokensSesion>(TOKENS_KEY, tokens), kvStorage.setItem(USER_KEY, user)]);
   }
 
+  /**
+   * Recupera la sesión guardada (si no está ya en memoria).
+   */
   private async restaurarSesion(): Promise<void> {
     if (this.currentUser && this.currentToken) {
       return;
     }
-    const sesion = await kvStorage.getItem<RespuestaAuth>(SESSION_KEY);
-    if (sesion) {
-      this.currentUser = sesion.user;
-      this.currentToken = sesion.access_token;
+    const [tokens, user] = await Promise.all([
+      secureStorage.getItem<TokensSesion>(TOKENS_KEY),
+      kvStorage.getItem<Usuario>(USER_KEY),
+    ]);
+    if (tokens && user) {
+      this.currentUser = user;
+      this.currentToken = tokens.access_token;
     }
   }
 
@@ -41,19 +56,19 @@ export class MockAuthService implements AuthService {
 
     const emailLimpio = credenciales.email.toLowerCase().trim();
 
-
+    // Escenario 1: Error de comunicación / Falla de servidor o red
     if (emailLimpio === "error@gualeguaychu.gov.ar" || emailLimpio.endsWith("@offline.com")) {
       throw new Error("Error de conexión a internet");
     }
 
     const usuarioEncontrado = MOCK_USERS[emailLimpio];
 
-  
+    // 🔴 Escenario 2: Credenciales inválidas (Usuario inexistente o clave incorrecta)
     if (!usuarioEncontrado || credenciales.password !== "123456") {
       throw new Error("Usuario o password incorrecta");
     }
 
-
+    // 🟢 Escenario 3: Respuesta exitosa (Vecino u Operador). Generar token JWT simulado
     const tokenSimulado = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken.${usuarioEncontrado.id}`;
     const refreshTokenSimulado = `e7cJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9`;
 
@@ -77,17 +92,17 @@ export class MockAuthService implements AuthService {
 
     const emailLimpio = datos.email.toLowerCase().trim();
 
-    // Error de Red / Conexión
+    // 🔴 Escenario de Error de Red / Conexión
     if (emailLimpio === "error@gualeguaychu.gov.ar" || emailLimpio.endsWith("@offline.com")) {
       throw new Error("Error de conexión a internet");
     }
 
-    // User ya registrado
+    // 🔴 Escenario de Validación: Usuario ya registrado
     if (MOCK_USERS[emailLimpio]) {
       throw new Error("El correo electrónico ya se encuentra registrado.");
     }
 
-    // Construcción del nuevo vecino
+    // 🟢 Construcción del nuevo vecino
     const nuevoUsuario: Usuario = {
       id: `usr-${Date.now()}`,
       nombre: datos.nombre,
@@ -125,7 +140,7 @@ export class MockAuthService implements AuthService {
     await delay(250);
     this.currentUser = null;
     this.currentToken = null;
-    await kvStorage.removeItem(SESSION_KEY);
+    await Promise.all([secureStorage.removeItem(TOKENS_KEY), kvStorage.removeItem(USER_KEY)]);
   }
 
   async getCurrentUser(): Promise<Usuario | null> {

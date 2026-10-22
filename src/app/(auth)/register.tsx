@@ -72,6 +72,7 @@ const RegisterScreen = () => {
 
     setCargando(true);
     try {
+      // Al actualizarse el usuario en el contexto, el NavigationGuard redirige según el rol.
       await register(datos);
     } catch (error) {
       setErrorGeneral(error instanceof Error ? error.message : "No se pudo completar el registro.");
