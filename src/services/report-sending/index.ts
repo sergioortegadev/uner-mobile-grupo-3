@@ -105,7 +105,6 @@ async function runSync(): Promise<SyncSummary> {
 }
 
 export const enviarReporte = sendReport;
-export const sincronizarPendientes = syncPendingReports;
 
 export type {
   InvalidReportResult,
