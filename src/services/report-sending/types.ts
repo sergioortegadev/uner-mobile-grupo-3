@@ -44,5 +44,5 @@ export type SendReportResult = SentReportResult | PendingReportResult | InvalidR
 /** Resumen de una pasada de sincronización. */
 export interface SyncSummary {
   sent: number;
-  pending: number;
+  pending: number | null;
 }
