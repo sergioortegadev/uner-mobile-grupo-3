@@ -58,7 +58,14 @@ export async function registerBackgroundSyncAsync(): Promise<void> {
     if (__DEV__) {
       console.log(`[background-sync] Tarea "${BACKGROUND_SYNC_TASK}" registrada.`);
     }
-  } catch (error) {
+      return;
+    }
+  catch (error) {
     logDevError('No se pudo registrar la sincronización en segundo plano.', error);
   }
+/* 
+    await BackgroundTask.registerTaskAsync(BACKGROUND_SYNC_TASK);
+  } catch (error) {
+    logDevError('No se pudo registrar la sincronización en segundo plano.', error);
+  } */
 }
