@@ -56,9 +56,31 @@ export async function sendReport(data: NewReportInput): Promise<SendReportResult
 }
 
 /**
- * Envía los reportes pendientes de la cola local, del más antiguo al más reciente.
+ * Pasada de sincronización en curso. un disparo a la vez
  */
-export async function syncPendingReports(): Promise<SyncSummary> {
+let syncInFlight: Promise<SyncSummary> | null = null;
+
+/**
+ * Envía los reportes pendientes de la cola local, del más antiguo al más reciente.
+ * Sin conexión no recorre la cola. Varias llamadas simultáneas comparten una sola pasada.
+ */
+export function syncPendingReports(): Promise<SyncSummary> {
+  if (syncInFlight) {
+    return syncInFlight;
+  }
+
+  syncInFlight = runSync().finally(() => {
+    syncInFlight = null;
+  });
+
+  return syncInFlight;
+}
+
+async function runSync(): Promise<SyncSummary> {
+  if (!(await isOnline())) {
+    return { sent: 0, pending: null };
+  }
+
   const pending = (await getPendingReports()).sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
@@ -79,7 +101,7 @@ export async function syncPendingReports(): Promise<SyncSummary> {
 
   const remaining = await getPendingReports();
 
-  return {  sent, pending: remaining.length };
+  return { sent, pending: remaining.length };
 }
 
 export const enviarReporte = sendReport;
