@@ -5,6 +5,7 @@ import { reportService } from "@/services/reports";
 import {
   getPendingReports,
   markReportAsSynced,
+  normalizeInterruptedReports,
   savePendingReport,
   updateSyncStatus,
 } from "@/services/storage";
@@ -42,6 +43,7 @@ export async function sendReport(
       cuadrillaId: null,
     };
 
+    let timedOut = false;
     if (await isOnline()) {
       const attempt = await attemptSend(reportData);
       if (attempt.ok) {
@@ -51,9 +53,12 @@ export async function sendReport(
           codigo: attempt.report.codigo,
         };
       }
+      timedOut = attempt.timedOut;
     }
 
-    const pendingItem = await savePendingReport(reportData);
+    const pendingItem = await savePendingReport(reportData, {
+      uncertainResponse: timedOut,
+    });
 
     return {
       status: "pendiente",
@@ -69,7 +74,7 @@ export async function sendReport(
 /** Resultado de un intento de envío: confirmado por el servicio o motivo del fallo. */
 type SendAttempt =
   | { ok: true; report: Reporte }
-  | { ok: false; errorMessage: string };
+  | { ok: false; timedOut: boolean; errorMessage: string };
 
 /**
  * Intenta enviar un reporte con el tiempo máximo de espera.
@@ -82,6 +87,7 @@ async function attemptSend(payload: CreateReportDTO): Promise<SendAttempt> {
     return result.timedOut
       ? {
           ok: false,
+          timedOut: true,
           errorMessage: `El servicio no confirmó el envío en ${seconds} segundos.`,
         }
       : { ok: true, report: result.value };
@@ -89,6 +95,7 @@ async function attemptSend(payload: CreateReportDTO): Promise<SendAttempt> {
     logDevError("Falló el envío de un reporte.", error);
     return {
       ok: false,
+      timedOut: false,
       errorMessage: "El servicio respondió con un error al enviar el reporte.",
     };
   }
@@ -116,6 +123,8 @@ export function syncPendingReports(): Promise<SyncSummary> {
 }
 
 async function runSync(): Promise<SyncSummary> {
+  await normalizeInterruptedReports();
+
   if (!(await isOnline())) {
     return { sent: 0, pending: null };
   }
@@ -133,7 +142,12 @@ async function runSync(): Promise<SyncSummary> {
 
     // Un fallo no corta la pasada: vuelve a 'pendiente' y seguimos con el próximo.
     if (!attempt.ok) {
-      await updateSyncStatus(item.localId, "pendiente", attempt.errorMessage);
+      await updateSyncStatus(
+        item.localId,
+        "pendiente",
+        attempt.errorMessage,
+        attempt.timedOut ? { uncertainResponse: true } : undefined,
+      );
       continue;
     }
 

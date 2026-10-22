@@ -123,13 +123,45 @@ export async function savePendingReport(
 
 type PendingReportItem = PendingReport;
 
+export interface UpdateSyncStatusOptions {
+  uncertainResponse?: boolean;
+}
+
+/**
+ * Normaliza a 'pendiente' con respuesta incierta cualquier reporte que haya quedado
+ * en estado 'sincronizando' a causa de un cierre o interrupción previa de la aplicación.
+ */
+export async function normalizeInterruptedReports(): Promise<number> {
+  const queue = await getAllLocalReports();
+  let normalizedCount = 0;
+
+  const updatedQueue = queue.map((item) => {
+    if (item.syncStatus === 'sincronizando') {
+      normalizedCount += 1;
+      return {
+        ...item,
+        syncStatus: 'pendiente' as const,
+        uncertainResponse: true,
+      };
+    }
+    return item;
+  });
+
+  if (normalizedCount > 0) {
+    await kvStorage.setItem(PENDING_REPORTS_KEY, updatedQueue);
+  }
+
+  return normalizedCount;
+}
+
 /**
  * Actualiza el estado de sincronización y registra errores o reintentos.
  */
 export async function updateSyncStatus(
   localId: string,
   status: SyncStatus,
-  errorMessage?: string
+  errorMessage?: string,
+  options?: UpdateSyncStatusOptions
 ): Promise<PendingReport | null> {
   const queue = await getAllLocalReports();
   const index = queue.findIndex((item) => item.localId === localId);
@@ -145,6 +177,10 @@ export async function updateSyncStatus(
     lastAttemptAt: new Date().toISOString(),
     retryCount: status === 'sincronizando' ? current.retryCount + 1 : current.retryCount,
     errorMessage: errorMessage ?? current.errorMessage,
+    uncertainResponse:
+      options?.uncertainResponse !== undefined
+        ? options.uncertainResponse
+        : current.uncertainResponse,
   };
 
   queue[index] = updated;
