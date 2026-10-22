@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { logDevError } from "@/helpers/log";
+import { registerBackgroundSyncAsync } from "@/services/background-sync";
 import { isOnline, subscribeToNetworkChanges } from "@/services/network";
 import { syncPendingReports } from "@/services/report-sending";
 
@@ -15,6 +16,8 @@ export function useAutoSync(): void {
 
   useEffect(() => {
     let cancelled = false;
+
+    registerBackgroundSyncAsync();
 
     isOnline().then((online) => {
       if (cancelled) return;
