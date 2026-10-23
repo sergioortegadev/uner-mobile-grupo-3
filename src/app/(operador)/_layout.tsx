@@ -26,7 +26,9 @@ const OperadorLayout = () => {
         name="index"
         options={{
           title: "Bandeja",
-          tabBarIcon: ({ size }) => <Icon name="file-tray-outline" size={size} />,
+          tabBarIcon: ({ size }) => (
+            <Icon name="file-tray-outline" size={size} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -37,10 +39,19 @@ const OperadorLayout = () => {
         }}
       />
       <Tabs.Screen
+        name="escanear"
+        options={{
+          title: "Escanear",
+          tabBarIcon: ({ size }) => <Icon name="qr-code-outline" size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ size }) => <Icon name="person-circle-outline" size={size} />,
+          tabBarIcon: ({ size }) => (
+            <Icon name="person-circle-outline" size={size} />
+          ),
         }}
       />
       <Tabs.Screen
