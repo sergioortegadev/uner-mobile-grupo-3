@@ -1,6 +1,6 @@
 {
   "name": "uner-mobile-grupo-3",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -29,6 +29,7 @@
     "expo-location": "~57.0.20",
     "expo-network": "~57.0.2",
     "expo-router": "~57.0.22",
+    "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
