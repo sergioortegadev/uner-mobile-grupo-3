@@ -1,4 +1,6 @@
 import { MOCK_USERS } from "../mocks/auth";
+import { kvStorage } from "./storage/kv-client";
+import { secureStorage } from "./storage/secure-client";
 import { CredencialesAuth, RegistroUsuarioDTO, RespuestaAuth, Usuario } from "../types";
 
 export interface AuthService {
@@ -9,11 +11,45 @@ export interface AuthService {
   getStoredToken(): Promise<string | null>;
 }
 
+// Los tokens van al almacenamiento seguro; los datos del usuario, al almacenamiento común.
+// (Las claves de SecureStore solo admiten letras, números, ".", "-" y "_").
+const TOKENS_KEY = "reporte_ciudadano.tokens";
+const USER_KEY = "@reporte_ciudadano:usuario";
+
+type TokensSesion = Omit<RespuestaAuth, "user">;
+
 const delay = (ms: number = 500) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class MockAuthService implements AuthService {
   private currentUser: Usuario | null = null;
   private currentToken: string | null = null;
+
+  /**
+   * Guarda la sesión en memoria: los tokens en almacenamiento seguro y el usuario en el común.
+   */
+  private async guardarSesion(respuesta: RespuestaAuth): Promise<void> {
+    const { user, ...tokens } = respuesta;
+    this.currentUser = user;
+    this.currentToken = respuesta.access_token;
+    await Promise.all([secureStorage.setItem<TokensSesion>(TOKENS_KEY, tokens), kvStorage.setItem(USER_KEY, user)]);
+  }
+
+  /**
+   * Recupera la sesión guardada (si no está ya en memoria).
+   */
+  private async restaurarSesion(): Promise<void> {
+    if (this.currentUser && this.currentToken) {
+      return;
+    }
+    const [tokens, user] = await Promise.all([
+      secureStorage.getItem<TokensSesion>(TOKENS_KEY),
+      kvStorage.getItem<Usuario>(USER_KEY),
+    ]);
+    if (tokens && user) {
+      this.currentUser = user;
+      this.currentToken = tokens.access_token;
+    }
+  }
 
   async login(credenciales: CredencialesAuth): Promise<RespuestaAuth> {
     await delay();
@@ -36,10 +72,7 @@ export class MockAuthService implements AuthService {
     const tokenSimulado = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken.${usuarioEncontrado.id}`;
     const refreshTokenSimulado = `e7cJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9`;
 
-    this.currentUser = usuarioEncontrado;
-    this.currentToken = tokenSimulado;
-
-    return {
+    const respuesta: RespuestaAuth = {
       user: usuarioEncontrado,
       access_token: tokenSimulado,
       refresh_token: refreshTokenSimulado,
@@ -48,6 +81,10 @@ export class MockAuthService implements AuthService {
       access_token_expires_at: "2026-10-15T20:20:20.200Z",
       refresh_token_expires_at: "2026-12-15T20:20:20.200Z",
     };
+
+    await this.guardarSesion(respuesta);
+
+    return respuesta;
   }
 
   async register(datos: RegistroUsuarioDTO): Promise<RespuestaAuth> {
@@ -84,10 +121,7 @@ export class MockAuthService implements AuthService {
     const tokenSimulado = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken.${nuevoUsuario.id}`;
     const refreshTokenSimulado = `e7cJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9`;
 
-    this.currentUser = nuevoUsuario;
-    this.currentToken = tokenSimulado;
-
-    return {
+    const respuesta: RespuestaAuth = {
       user: nuevoUsuario,
       access_token: tokenSimulado,
       refresh_token: refreshTokenSimulado,
@@ -96,21 +130,28 @@ export class MockAuthService implements AuthService {
       access_token_expires_at: "2026-10-15T20:20:20.200Z",
       refresh_token_expires_at: "2026-12-15T20:20:20.200Z",
     };
+
+    await this.guardarSesion(respuesta);
+
+    return respuesta;
   }
 
   async logout(): Promise<void> {
     await delay(250);
     this.currentUser = null;
     this.currentToken = null;
+    await Promise.all([secureStorage.removeItem(TOKENS_KEY), kvStorage.removeItem(USER_KEY)]);
   }
 
   async getCurrentUser(): Promise<Usuario | null> {
     await delay(350);
+    await this.restaurarSesion();
     return this.currentUser;
   }
 
   async getStoredToken(): Promise<string | null> {
     await delay(250);
+    await this.restaurarSesion();
     return this.currentToken;
   }
 }
