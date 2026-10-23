@@ -1,4 +1,4 @@
-import { kvStorage } from './kv-client';
+import { kvStorage, StorageReadError } from './kv-client';
 import { CreateReportDTO, Reporte } from '@/types/index';
 import { PendingReport, SyncStatus } from '@/types/offline';
 import { persistReportPhotos } from '@/utils/photo-storage';
@@ -25,13 +25,27 @@ function generateProvisionalCode(localId: string): string {
 
 /**
  * Obtiene la lista completa de reportes guardados localmente.
+ * Solo la ausencia de datos se interpreta como lista vacía.
  */
 export async function getAllLocalReports(): Promise<PendingReport[]> {
-  const list = await kvStorage.getItem<PendingReport[]>(PENDING_REPORTS_KEY);
-  if (!Array.isArray(list)) {
+  return readQueue();
+}
+
+/**
+ * Lee la cola local y valida que el contenido guardado sea una lista.
+ */
+async function readQueue(): Promise<PendingReport[]> {
+  const stored = await kvStorage.getItem<unknown>(PENDING_REPORTS_KEY);
+
+  if (stored === null) {
     return [];
   }
-  return list;
+
+  if (!Array.isArray(stored)) {
+    throw new StorageReadError(PENDING_REPORTS_KEY, JSON.stringify(stored));
+  }
+
+  return stored as PendingReport[];
 }
 
 /**
@@ -57,6 +71,9 @@ export async function savePendingReport(
   payload: CreateReportDTO,
   options?: { uncertainResponse?: boolean }
 ): Promise<PendingReport> {
+  // Se lee antes de copiar fotos: si la cola es ilegible conviene fallar sin dejar archivos huérfanos.
+  const queue = await readQueue();
+
   const localId = generateLocalId();
   const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
@@ -98,7 +115,6 @@ export async function savePendingReport(
     createdAt: now,
   };
 
-  const queue = await getAllLocalReports();
   queue.unshift(pendingItem);
   await kvStorage.setItem(PENDING_REPORTS_KEY, queue);
 
@@ -107,13 +123,45 @@ export async function savePendingReport(
 
 type PendingReportItem = PendingReport;
 
+export interface UpdateSyncStatusOptions {
+  uncertainResponse?: boolean;
+}
+
+/**
+ * Normaliza a 'pendiente' con respuesta incierta cualquier reporte que haya quedado
+ * en estado 'sincronizando' a causa de un cierre o interrupción previa de la aplicación.
+ */
+export async function normalizeInterruptedReports(): Promise<number> {
+  const queue = await getAllLocalReports();
+  let normalizedCount = 0;
+
+  const updatedQueue = queue.map((item) => {
+    if (item.syncStatus === 'sincronizando') {
+      normalizedCount += 1;
+      return {
+        ...item,
+        syncStatus: 'pendiente' as const,
+        uncertainResponse: true,
+      };
+    }
+    return item;
+  });
+
+  if (normalizedCount > 0) {
+    await kvStorage.setItem(PENDING_REPORTS_KEY, updatedQueue);
+  }
+
+  return normalizedCount;
+}
+
 /**
  * Actualiza el estado de sincronización y registra errores o reintentos.
  */
 export async function updateSyncStatus(
   localId: string,
   status: SyncStatus,
-  errorMessage?: string
+  errorMessage?: string,
+  options?: UpdateSyncStatusOptions
 ): Promise<PendingReport | null> {
   const queue = await getAllLocalReports();
   const index = queue.findIndex((item) => item.localId === localId);
@@ -129,6 +177,10 @@ export async function updateSyncStatus(
     lastAttemptAt: new Date().toISOString(),
     retryCount: status === 'sincronizando' ? current.retryCount + 1 : current.retryCount,
     errorMessage: errorMessage ?? current.errorMessage,
+    uncertainResponse:
+      options?.uncertainResponse !== undefined
+        ? options.uncertainResponse
+        : current.uncertainResponse,
   };
 
   queue[index] = updated;

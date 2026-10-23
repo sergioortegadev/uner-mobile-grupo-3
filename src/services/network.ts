@@ -34,13 +34,6 @@ export async function isOnline(): Promise<boolean> {
 }
 
 /**
- * Determina si se puede intentar la sincronización
- */
-export async function canAttemptSync(): Promise<boolean> {
-  return isOnline();
-}
-
-/**
  * Suscribe un listener a cambios en la conectividad del dispositivo.
  * Retorna la función para cancelar la suscripción.
  */

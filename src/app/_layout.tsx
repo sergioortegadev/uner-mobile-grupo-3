@@ -1,6 +1,7 @@
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { LoadingState } from "@/components/ui/state-views";
 import { AuthProvider, useAuth } from "@/context/auth-context";
+import { useAutoSync } from "@/hooks/use-auto-sync";
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { useColorScheme } from "react-native";
@@ -44,7 +45,7 @@ const NavigationGuard = () => {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-
+  useAutoSync()
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <AuthProvider>
